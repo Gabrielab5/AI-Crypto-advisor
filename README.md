@@ -10,7 +10,7 @@ A personalized crypto investor dashboard powered by AI. Users complete a short o
 |-------|-------------|--------|
 | 1 | Monorepo scaffold, DB schema, Express setup, Tailwind dark theme | ✅ Done |
 | 2 | Auth — register, login, JWT, protected routes, auth UI | ✅ Done |
-| 3 | Onboarding wizard — asset picker, risk profile, content prefs | 🔜 Next |
+| 3 | Onboarding wizard — asset picker, risk profile, content prefs | ✅ Done |
 | 4 | AI analysis feed — OpenRouter integration | ⬜ Planned |
 | 5 | Live data — prices, news, signals | ⬜ Planned |
 
@@ -115,7 +115,7 @@ Full schema: [`server/db/schema.sql`](server/db/schema.sql)
 |-------|------|------|
 | `/register` | Public | Register form → on success → `/onboarding` |
 | `/login` | Public | Login form → on success → `/dashboard` |
-| `/onboarding` | Protected (JWT) | Welcome screen + progress indicator |
+| `/onboarding` | Protected (JWT) | 3-step preferences wizard (assets → investor type → content) |
 | `/dashboard` | Protected (JWT) | Main dashboard with nav + sign-out |
 | `/*` | — | Redirects to `/login` |
 
@@ -141,6 +141,15 @@ Base URL: `http://localhost:5000`
 |--------|----------|-------------|
 | GET | `/api/users/me` | Current user + preferences |
 | PATCH | `/api/users/preferences` | Update interested assets, risk type, content types |
+
+### Preferences _(requires auth)_
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/preferences` | Get current user's preferences |
+| POST | `/api/preferences` | Save (upsert) all preferences |
+
+POST body: `{ interested_assets: string[], investor_type: string, content_types: string[] }`
 
 ### Votes _(requires auth)_
 

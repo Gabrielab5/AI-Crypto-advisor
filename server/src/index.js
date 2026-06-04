@@ -3,9 +3,10 @@ const express = require('express');
 const cors = require('cors');
 const pool = require('./db/pool');
 
-const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/users');
-const voteRoutes = require('./routes/votes');
+const authRoutes        = require('./routes/auth');
+const userRoutes        = require('./routes/users');
+const voteRoutes        = require('./routes/votes');
+const preferencesRoutes = require('./routes/preferences');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -22,9 +23,10 @@ app.get('/health', async (req, res) => {
   }
 });
 
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/votes', voteRoutes);
+app.use('/api/auth',        authRoutes);
+app.use('/api/users',       userRoutes);
+app.use('/api/votes',       voteRoutes);
+app.use('/api/preferences', preferencesRoutes);
 
 async function start() {
   try {

@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getPreferences } from '../api/preferences';
 import { useAuth } from '../context/AuthContext';
 
 const PLACEHOLDER_CARDS = [
@@ -10,6 +12,13 @@ const PLACEHOLDER_CARDS = [
 export default function Dashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    getPreferences().then(({ data }) => {
+      const onboarded = data.interested_assets.length > 0 && !!data.investor_type;
+      if (!onboarded) navigate('/onboarding', { replace: true });
+    }).catch(() => navigate('/onboarding', { replace: true }));
+  }, [navigate]);
 
   function handleLogout() {
     logout();

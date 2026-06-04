@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { login as loginApi } from '../api/auth';
+import { getPreferences } from '../api/preferences';
 import { useAuth } from '../context/AuthContext';
 import BrandLogo from '../components/BrandLogo';
 
@@ -39,7 +40,15 @@ export default function Login() {
     try {
       const res = await loginApi({ email: email.trim(), password });
       auth.login(res.data.token, res.data.user);
-      navigate('/dashboard');
+      // Token is now in localStorage; axios interceptor will use it immediately.
+      // Route to onboarding if the user hasn't set preferences yet.
+      try {
+        const { data: prefs } = await getPreferences();
+        const onboarded = prefs.interested_assets.length > 0 && !!prefs.investor_type;
+        navigate(onboarded ? '/dashboard' : '/onboarding');
+      } catch {
+        navigate('/onboarding');
+      }
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { error?: string } } }).response?.data?.error
