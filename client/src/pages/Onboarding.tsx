@@ -167,8 +167,8 @@ export default function Onboarding() {
   // ─── Derived ──────────────────────────────────────────────────────────────
 
   if (checking) return (
-    <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center">
-      <div className="flex items-center gap-3 text-gray-500"><Spinner /><span className="text-sm">Loading…</span></div>
+    <div className="min-h-screen bg-[var(--c-bg)] flex items-center justify-center">
+      <div className="flex items-center gap-3 text-[var(--c-muted)]"><Spinner /><span className="text-sm">Loading…</span></div>
     </div>
   );
 
@@ -188,26 +188,26 @@ export default function Onboarding() {
   const hasGroups = Object.keys(groups).some(k => k !== '');
 
   const selBase    = 'transition-all duration-150 border';
-  const selActive  = 'bg-[#00ff88]/10 border-[#00ff88] text-[#00ff88] shadow-[0_0_14px_rgba(0,255,136,0.12)]';
-  const selInactive= 'bg-[#1a1a1a] border-[#2a2a2a] text-gray-300 hover:border-[#3a3a3a] hover:bg-[#1f1f1f] hover:text-white';
+  const selActive  = 'bg-[var(--c-accent-bg)] border-[var(--c-accent)] text-[var(--c-accent)] shadow-[0_0_14px_rgba(0,255,136,0.12)]';
+  const selInactive= 'bg-[var(--c-surface)] border-[var(--c-border)] text-[var(--c-text-2)] hover:border-[var(--c-s3)] hover:bg-[var(--c-surface)] hover:text-[var(--c-text)]';
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d] flex flex-col">
+    <div className="min-h-screen bg-[var(--c-bg)] flex flex-col">
 
       {/* Header */}
       <header className="px-6 pt-6 pb-0">
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-[#00ff88]/10 border border-[#00ff88]/20 flex items-center justify-center">
-                <svg className="w-3.5 h-3.5 text-[#00ff88]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <div className="w-7 h-7 rounded-lg bg-[var(--c-accent)]/10 border border-[var(--c-accent)]/20 flex items-center justify-center">
+                <svg className="w-3.5 h-3.5 text-[var(--c-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                 </svg>
               </div>
-              <span className="text-white text-sm font-semibold">AI Crypto Advisor</span>
+              <span className="text-[var(--c-text)] text-sm font-semibold">AI Crypto Advisor</span>
             </div>
             {hasExisting && (
-              <button onClick={() => navigate('/dashboard')} className="text-gray-500 hover:text-gray-300 text-sm transition-colors">
+              <button onClick={() => navigate('/dashboard')} className="text-[var(--c-muted)] hover:text-[var(--c-text-2)] text-sm transition-colors">
                 Skip →
               </button>
             )}
@@ -216,17 +216,17 @@ export default function Onboarding() {
           {/* Progress segments */}
           <div className="flex items-center gap-2 mb-1.5">
             {STEPS.map((s, i) => (
-              <div key={s.key} className="flex-1 h-1 rounded-full bg-[#2a2a2a] overflow-hidden">
+              <div key={s.key} className="flex-1 h-1 rounded-full bg-[var(--c-border)] overflow-hidden">
                 <div
-                  className="h-full bg-[#00ff88] rounded-full transition-all duration-500 ease-out"
+                  className="h-full bg-[var(--c-accent)] rounded-full transition-all duration-500 ease-out"
                   style={{ width: i < step ? '100%' : i === step ? '50%' : '0%' }}
                 />
               </div>
             ))}
           </div>
           <div className="flex justify-between">
-            <p className="text-gray-600 text-xs">Step {step + 1} of {STEPS.length}</p>
-            <p className="text-gray-600 text-xs">
+            <p className="text-[var(--c-muted)] text-xs">Step {step + 1} of {STEPS.length}</p>
+            <p className="text-[var(--c-muted)] text-xs">
               {step === 0 ? `${answers.interested_assets.length} selected` :
                step === 2 ? `${answers.content_types.length} selected` : ''}
             </p>
@@ -240,8 +240,8 @@ export default function Onboarding() {
 
           {/* Animated slide */}
           <div key={step} className={direction === 'forward' ? 'animate-slide-in-right' : 'animate-slide-in-left'}>
-            <h2 className="text-white text-2xl font-bold mb-1.5 tracking-tight">{currentStep.question}</h2>
-            <p className="text-gray-500 text-sm mb-7">{currentStep.subtitle}</p>
+            <h2 className="text-[var(--c-text)] text-2xl font-bold mb-1.5 tracking-tight">{currentStep.question}</h2>
+            <p className="text-[var(--c-muted)] text-sm mb-7">{currentStep.subtitle}</p>
 
             {/* ── Multi-select with group labels ─────────────────────────── */}
             {currentStep.type === 'multi' && (
@@ -249,7 +249,7 @@ export default function Onboarding() {
                 {hasGroups
                   ? Object.entries(groups).map(([group, opts]) => (
                       <div key={group}>
-                        {group && <p className="text-gray-600 text-xs font-medium uppercase tracking-wider mb-2.5">{group}</p>}
+                        {group && <p className="text-[var(--c-muted)] text-xs font-medium uppercase tracking-wider mb-2.5">{group}</p>}
                         <div className="flex flex-wrap gap-2">
                           {opts.map(opt => (
                             <button
@@ -260,8 +260,8 @@ export default function Onboarding() {
                               <span className="text-base leading-none">{opt.icon}</span>
                               {opt.label}
                               {isSelected(opt) && (
-                                <span className="ml-0.5 w-4 h-4 rounded-full bg-[#00ff88] flex items-center justify-center">
-                                  <svg className="w-2.5 h-2.5 text-[#0d0d0d]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                <span className="ml-0.5 w-4 h-4 rounded-full bg-[var(--c-accent)] flex items-center justify-center">
+                                  <svg className="w-2.5 h-2.5 text-[var(--c-bg)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                   </svg>
                                 </span>
@@ -280,10 +280,10 @@ export default function Onboarding() {
                           className={`flex items-center gap-3 p-4 rounded-xl text-left ${selBase} ${isSelected(opt) ? selActive : selInactive}`}
                         >
                           <span className="text-xl leading-none shrink-0">{opt.icon}</span>
-                          <span className={`font-medium text-sm ${isSelected(opt) ? 'text-[#00ff88]' : 'text-white'}`}>{opt.label}</span>
+                          <span className={`font-medium text-sm ${isSelected(opt) ? 'text-[var(--c-accent)]' : 'text-[var(--c-text)]'}`}>{opt.label}</span>
                           {isSelected(opt) && (
-                            <div className="ml-auto shrink-0 w-4 h-4 rounded-full bg-[#00ff88] flex items-center justify-center">
-                              <svg className="w-2.5 h-2.5 text-[#0d0d0d]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <div className="ml-auto shrink-0 w-4 h-4 rounded-full bg-[var(--c-accent)] flex items-center justify-center">
+                              <svg className="w-2.5 h-2.5 text-[var(--c-bg)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                               </svg>
                             </div>
@@ -307,12 +307,12 @@ export default function Onboarding() {
                   >
                     <span className="text-2xl leading-none mt-0.5 shrink-0">{opt.icon}</span>
                     <div className="min-w-0 flex-1">
-                      <p className={`font-semibold text-sm mb-0.5 ${isSelected(opt) ? 'text-[#00ff88]' : 'text-white'}`}>{opt.label}</p>
-                      {opt.desc && <p className={`text-xs leading-relaxed ${isSelected(opt) ? 'text-[#00ff88]/65' : 'text-gray-500'}`}>{opt.desc}</p>}
+                      <p className={`font-semibold text-sm mb-0.5 ${isSelected(opt) ? 'text-[var(--c-accent)]' : 'text-[var(--c-text)]'}`}>{opt.label}</p>
+                      {opt.desc && <p className={`text-xs leading-relaxed ${isSelected(opt) ? 'text-[var(--c-accent)]/65' : 'text-[var(--c-muted)]'}`}>{opt.desc}</p>}
                     </div>
                     {isSelected(opt) && (
-                      <div className="shrink-0 w-5 h-5 rounded-full bg-[#00ff88] flex items-center justify-center mt-0.5">
-                        <svg className="w-3 h-3 text-[#0d0d0d]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <div className="shrink-0 w-5 h-5 rounded-full bg-[var(--c-accent)] flex items-center justify-center mt-0.5">
+                        <svg className="w-3 h-3 text-[var(--c-bg)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                       </div>
@@ -340,7 +340,7 @@ export default function Onboarding() {
             <button
               onClick={goBack}
               disabled={step === 0}
-              className="flex items-center gap-2 text-gray-500 hover:text-white text-sm transition-colors disabled:opacity-0 disabled:pointer-events-none"
+              className="flex items-center gap-2 text-[var(--c-muted)] hover:text-[var(--c-text)] text-sm transition-colors disabled:opacity-0 disabled:pointer-events-none"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
@@ -351,7 +351,7 @@ export default function Onboarding() {
             {step < STEPS.length - 1 ? (
               <button
                 onClick={goNext}
-                className="flex items-center gap-2 bg-[#00ff88] text-[#0d0d0d] font-semibold px-6 py-2.5 rounded-xl hover:bg-[#00cc6a] transition-colors text-sm"
+                className="flex items-center gap-2 bg-[var(--c-accent)] text-[var(--c-bg)] font-semibold px-6 py-2.5 rounded-xl hover:bg-[var(--c-accent-2)] transition-colors text-sm"
               >
                 Next
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -362,7 +362,7 @@ export default function Onboarding() {
               <button
                 onClick={handleFinish}
                 disabled={submitting}
-                className="flex items-center gap-2 bg-[#00ff88] text-[#0d0d0d] font-semibold px-6 py-2.5 rounded-xl hover:bg-[#00cc6a] transition-colors text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 bg-[var(--c-accent)] text-[var(--c-bg)] font-semibold px-6 py-2.5 rounded-xl hover:bg-[var(--c-accent-2)] transition-colors text-sm disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {submitting && <Spinner sm />}
                 {submitting ? 'Saving…' : 'Finish & go to dashboard'}

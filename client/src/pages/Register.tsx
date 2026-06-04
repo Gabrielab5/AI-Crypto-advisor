@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { register as registerApi } from '../api/auth';
 import { useAuth } from '../context/AuthContext';
@@ -63,15 +63,15 @@ export default function Register() {
   }
 
   const inputBase =
-    'w-full bg-[#242424] border text-white rounded-lg px-4 py-3 text-sm outline-none transition-colors placeholder-gray-600 focus:border-[#00ff88]';
+    'w-full bg-[var(--c-s2)] border text-[var(--c-text)] rounded-lg px-4 py-3 text-sm outline-none transition-colors placeholder-[var(--c-muted)] focus:border-[var(--c-accent)]';
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d] flex flex-col items-center justify-center px-4">
+    <div className="min-h-screen bg-[var(--c-bg)] flex flex-col items-center justify-center px-4">
       <BrandLogo />
 
-      <div className="w-full max-w-sm bg-[#1a1a1a] rounded-2xl border border-[#2a2a2a] p-8">
-        <h2 className="text-white font-semibold text-lg mb-1">Create account</h2>
-        <p className="text-gray-500 text-sm mb-6">Start your personalized dashboard</p>
+      <div className="w-full max-w-sm bg-[var(--c-surface)] rounded-2xl border border-[var(--c-border)] p-8">
+        <h2 className="text-[var(--c-text)] font-semibold text-lg mb-1">Create account</h2>
+        <p className="text-[var(--c-muted)] text-sm mb-6">Start your personalized dashboard</p>
 
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
           {errors.general && (
@@ -81,7 +81,7 @@ export default function Register() {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">
+            <label className="block text-sm font-medium text-[var(--c-text-2)] mb-1.5">
               Full name
             </label>
             <input
@@ -90,7 +90,7 @@ export default function Register() {
               onChange={e => setName(e.target.value)}
               placeholder="Satoshi Nakamoto"
               autoComplete="name"
-              className={`${inputBase} ${errors.name ? 'border-red-500' : 'border-[#2a2a2a]'}`}
+              className={`${inputBase} ${errors.name ? 'border-red-500' : 'border-[var(--c-border)]'}`}
             />
             {errors.name && (
               <p className="text-red-400 text-xs mt-1.5">{errors.name}</p>
@@ -98,7 +98,7 @@ export default function Register() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">
+            <label className="block text-sm font-medium text-[var(--c-text-2)] mb-1.5">
               Email
             </label>
             <input
@@ -107,7 +107,7 @@ export default function Register() {
               onChange={e => setEmail(e.target.value)}
               placeholder="you@example.com"
               autoComplete="email"
-              className={`${inputBase} ${errors.email ? 'border-red-500' : 'border-[#2a2a2a]'}`}
+              className={`${inputBase} ${errors.email ? 'border-red-500' : 'border-[var(--c-border)]'}`}
             />
             {errors.email && (
               <p className="text-red-400 text-xs mt-1.5">{errors.email}</p>
@@ -115,7 +115,7 @@ export default function Register() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">
+            <label className="block text-sm font-medium text-[var(--c-text-2)] mb-1.5">
               Password
             </label>
             <input
@@ -124,7 +124,7 @@ export default function Register() {
               onChange={e => setPassword(e.target.value)}
               placeholder="Min. 8 characters"
               autoComplete="new-password"
-              className={`${inputBase} ${errors.password ? 'border-red-500' : 'border-[#2a2a2a]'}`}
+              className={`${inputBase} ${errors.password ? 'border-red-500' : 'border-[var(--c-border)]'}`}
             />
             {errors.password && (
               <p className="text-red-400 text-xs mt-1.5">{errors.password}</p>
@@ -134,18 +134,18 @@ export default function Register() {
           <button
             type="submit"
             disabled={loading}
-            className="mt-1 w-full bg-[#00ff88] text-[#0d0d0d] font-semibold py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-[#00cc6a] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="mt-1 w-full bg-[var(--c-accent)] text-[var(--c-bg)] font-semibold py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-[var(--c-accent-2)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {loading && <Spinner />}
             {loading ? 'Creating account…' : 'Create account'}
           </button>
         </form>
 
-        <p className="text-gray-500 text-sm text-center mt-6">
+        <p className="text-[var(--c-muted)] text-sm text-center mt-6">
           Already have an account?{' '}
           <Link
             to="/login"
-            className="text-[#00ff88] hover:text-[#00cc6a] font-medium transition-colors"
+            className="text-[var(--c-accent)] hover:text-[var(--c-accent-2)] font-medium transition-colors"
           >
             Sign in
           </Link>

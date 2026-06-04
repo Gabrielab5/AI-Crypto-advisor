@@ -1,227 +1,231 @@
-# AI Crypto Advisor
+# 🪙 AI Crypto Advisor
 
-A personalized crypto investor dashboard powered by AI. Users complete a short onboarding quiz (assets, risk profile, content preferences) and receive a tailored feed of prices, news, signals, and AI-generated analysis — all tuned to their style.
+[![Build](https://img.shields.io/badge/build-passing-brightgreen?style=flat-square)](https://github.com)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
+[![React](https://img.shields.io/badge/React-19-61dafb?style=flat-square&logo=react)](https://react.dev)
+[![Node.js](https://img.shields.io/badge/Node.js-20-339933?style=flat-square&logo=node.js)](https://nodejs.org)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14-336791?style=flat-square&logo=postgresql)](https://postgresql.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6-3178c6?style=flat-square&logo=typescript)](https://typescriptlang.org)
 
----
-
-## Build Progress
-
-| Stage | Description | Status |
-|-------|-------------|--------|
-| 1 | Monorepo scaffold, DB schema, Express setup, Tailwind dark theme | ✅ Done |
-| 2 | Auth — register, login, JWT, protected routes, auth UI | ✅ Done |
-| 3 | Onboarding wizard — asset picker, risk profile, content prefs | ✅ Done |
-| 4 | Dashboard — coin prices, news, AI insight, meme + vote system | ✅ Done |
-| 5 | AI fix, auto-refresh, caching, drawer, theme, password reset, test suite | ✅ Done |
-| 6 | Deploy (Vercel + Render) | 🔜 Next |
+> A personalized crypto investor dashboard powered by AI. Select your assets, investor profile, and content preferences — get a live feed of prices, news, AI-generated insights, and memes, all tuned to your style.
 
 ---
 
-## Architecture
+## 📸 Live Demo
 
-```
-AI-Crypto-advisor/
-├── client/          React + Vite + TypeScript  →  Vercel
-└── server/          Node.js + Express          →  Render
-```
-
-**Data flow:** Client → Express REST API → PostgreSQL (persistent data) + OpenRouter AI (analysis) + CryptoPanic (news).
+| | URL |
+|---|---|
+| **Frontend** | _deploy to Vercel — see [DEPLOYMENT.md](DEPLOYMENT.md)_ |
+| **API** | _deploy to Render — see [DEPLOYMENT.md](DEPLOYMENT.md)_ |
 
 ---
 
-## Tech Stack
+## ✨ Features
+
+- **Personalized onboarding** — 3-step wizard: assets, investor type, content preferences
+- **Live coin prices** — top 8 coins from CoinGecko, filtered to your interests
+- **Coin detail modal** — 7/30-day recharts price chart, ATH, supply, momentum score, news
+- **AI market insights** — OpenRouter (mistral-7b) with HuggingFace fallback, refreshable
+- **Curated news feed** — CryptoPanic API with static fallback, time-ago labels
+- **Meme card** — random crypto meme with "🔀 New Meme" shuffle button
+- **Vote system** — 👍/👎 per section, stored per user in PostgreSQL
+- **Dark / light theme** — CSS variable tokens, toggleable, persisted to DB and localStorage
+- **Auto-refresh** — live data every 60 seconds with "Updated Xs ago" indicator
+- **Offline resilience** — localStorage fallback with stale-data banner
+- **Settings drawer** — password reset, theme toggle, preferences link
+- **Production-grade** — Helmet, rate limiting, parameterized queries, CORS
+
+---
+
+## 🛠 Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
-| Frontend | React 18, Vite, TypeScript, Tailwind CSS v3 |
-| Routing | react-router-dom v6 |
-| HTTP client | axios |
-| Backend | Node.js, Express 4 |
+|---|---|
+| Frontend | React 19 + Vite, TypeScript, Tailwind CSS v3 |
+| Charts | Recharts |
+| Icons | Lucide React |
+| Routing | react-router-dom v7 |
+| HTTP client | Axios + JWT interceptor |
+| Backend | Node.js 20, Express 4 |
 | Database | PostgreSQL 14, `pg` pool |
 | Auth | JWT (jsonwebtoken + bcryptjs) |
-| AI | OpenRouter API |
-| News | CryptoPanic API (optional) |
+| Security | Helmet, express-rate-limit |
+| AI | OpenRouter API → HuggingFace fallback |
+| News | CryptoPanic API |
+| Prices | CoinGecko free API |
+| Email | Nodemailer |
+| Tests | Jest + Supertest (BE) · Vitest + RTL (FE) |
 | Deploy | Vercel (client) + Render (server) |
 
 ---
 
-## Prerequisites
+## 🏗 Architecture
 
-- Node.js ≥ 18
-- PostgreSQL 14+ running locally
-- (Optional) OpenRouter and CryptoPanic API keys
+```
+┌─────────────────────────────────────────────┐
+│                   Browser                   │
+│  React + Vite + Tailwind (Vercel)           │
+│  /login  /register  /onboarding  /dashboard │
+└──────────────┬──────────────────────────────┘
+               │ HTTPS + JWT
+┌──────────────▼──────────────────────────────┐
+│          Express API (Render)               │
+│  /api/auth  /api/preferences  /api/votes    │
+│  /api/dashboard  /api/coins                 │
+└──────┬────────────────────┬─────────────────┘
+       │                    │
+┌──────▼──────┐    ┌────────▼────────────────┐
+│ PostgreSQL  │    │   External APIs          │
+│ (Render DB) │    │  CoinGecko (free)        │
+│ users       │    │  OpenRouter / HuggingFace│
+│ preferences │    │  CryptoPanic (optional)  │
+│ votes       │    └─────────────────────────┘
+└─────────────┘
+```
 
 ---
 
-## Local Setup
+## 🚀 Local Setup
+
+### Prerequisites
+- Node.js ≥ 18
+- PostgreSQL 14+
 
 ### 1. Clone & install
-
 ```bash
-git clone <repo>
+git clone <repo-url>
 cd AI-Crypto-advisor
-npm run install:all
+npm run install:all      # installs server + client deps
 ```
 
 ### 2. Configure environment
-
 ```bash
-# Server
 cp server/.env.example server/.env
-# Edit server/.env — set DATABASE_URL with your Postgres user/password:
-# DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/ai_crypto_advisor
+# Edit server/.env — set DATABASE_URL, JWT_SECRET, and API keys
 
-# Client
 cp client/.env.example client/.env
+# Set VITE_API_URL=http://localhost:5000
 ```
 
 ### 3. Set up the database
-
 ```bash
-# First-time setup: creates DB + applies full schema
+# First-time: create DB + apply full schema
 cd server && npm run db:init
 
-# On existing installs: add new columns only (safe to run multiple times)
+# Existing install (adds new columns only):
 cd server && npm run db:migrate
 ```
 
-### 3b. Create the database and apply schema
-
-```bash
-# Creates the DB if it doesn't exist, then applies all tables
-cd server && npm run db:init
-```
-
-> `db:init` connects to PostgreSQL via `DATABASE_URL`, auto-creates `ai_crypto_advisor` if missing, and runs `server/db/schema.sql`. Re-running it is safe — all statements use `IF NOT EXISTS`.
-
 ### 4. Run in development
-
-Open two terminals:
-
 ```bash
-# Terminal 1 — API server  →  http://localhost:5000
-npm run dev:server
-
-# Terminal 2 — React app   →  http://localhost:5173
-npm run dev:client
+# Two terminals:
+npm run dev:server    # → http://localhost:5000
+npm run dev:client    # → http://localhost:5173
 ```
 
 ---
 
-## Database Schema
-
-```
-users              — id, name, email, password_hash, created_at
-user_preferences   — user_id (FK), interested_assets[], investor_type, content_types[]
-votes              — id, user_id (FK), section, item_id, vote (+1/-1), created_at
-```
-
-Full schema: [`server/db/schema.sql`](server/db/schema.sql)
-
----
-
-## Frontend Routes
-
-| Route | Auth | Page |
-|-------|------|------|
-| `/register` | Public | Register form → on success → `/onboarding` |
-| `/login` | Public | Login form → on success → `/dashboard` |
-| `/onboarding` | Protected (JWT) | 3-step preferences wizard (assets → investor type → content) |
-| `/dashboard` | Protected (JWT) | Main dashboard with nav + sign-out |
-| `/*` | — | Redirects to `/login` |
-
-Both `/login` and `/register` redirect to `/dashboard` when already authenticated.
-JWT is stored in `localStorage` and injected into every request via an axios interceptor (`client/src/api/client.ts`).
-
----
-
-## API Reference
+## 📡 API Reference
 
 Base URL: `http://localhost:5000`
 
 ### Auth
-
-| Method | Endpoint | Body | Description |
-|--------|----------|------|-------------|
-| POST | `/api/auth/register` | `{ name, email, password }` | Create account |
-| POST | `/api/auth/login` | `{ email, password }` | Get JWT token |
-
-### Users _(requires `Authorization: Bearer <token>`)_
-
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/users/me` | Current user + preferences |
-| PATCH | `/api/users/preferences` | Update interested assets, risk type, content types |
+|---|---|---|
+| POST | `/api/auth/register` | `{ name, email, password }` → JWT + user |
+| POST | `/api/auth/login` | `{ email, password }` → JWT + user |
+| POST | `/api/auth/request-password-reset` | `{ email }` → sends reset link |
+| POST | `/api/auth/reset-password` | `{ token, password }` → updates password |
 
-### Dashboard _(requires auth)_
-
+### Dashboard _(JWT required)_
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/dashboard` | Returns all 4 sections — coin prices (CoinGecko), news (CryptoPanic / fallback), AI insight (OpenRouter), random meme |
+|---|---|---|
+| GET | `/api/dashboard` | All 4 sections (prices, news, AI, meme) personalized to user prefs |
+| GET | `/api/coins/:id` | Coin detail: ATH, supply, 7d/30d changes |
+| GET | `/api/coins/:id/chart?days=7` | Price history (7 or 30 days) |
 
-Data is personalized by `interested_assets` and `investor_type` from saved preferences. CoinGecko results are cached 5 minutes in-memory.
-
-### Preferences _(requires auth)_
-
+### Preferences, Votes, Users _(JWT required)_
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/preferences` | Get current user's preferences |
+|---|---|---|
+| GET | `/api/preferences` | Current user preferences |
 | POST | `/api/preferences` | Save (upsert) all preferences |
-
-POST body: `{ interested_assets: string[], investor_type: string, content_types: string[] }`
-
-### Votes _(requires auth)_
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/votes` | Cast or update vote `{ section, item_id, vote: 1 \| -1 }` |
-| GET | `/api/votes?section=news` | Fetch user's votes, optionally filtered by section |
+| GET/POST | `/api/votes` | Fetch or cast `{ section, item_id, vote: 'up'\|'down' }` |
+| GET | `/api/users/me` | User profile + preferences |
+| PATCH | `/api/users/preferences` | Update individual preference fields |
 
 ### Health
-
 ```
-GET /health   →  { status: "ok", db: "connected" }
+GET /health  →  { status: "ok", db: "connected" }
 ```
 
 ---
 
-## Environment Variables
+## 🔐 Environment Variables
 
 ### Server (`server/.env`)
-
 | Variable | Required | Description |
-|----------|----------|-------------|
-| `PORT` | — | HTTP port (default `5000`) |
+|---|---|---|
 | `DATABASE_URL` | ✓ | PostgreSQL connection string |
-| `JWT_SECRET` | ✓ | Secret for signing JWTs — use a long random string in prod |
-| `OPENROUTER_API_KEY` | ✓ | OpenRouter key for AI analysis |
-| `CRYPTOPANIC_API_KEY` | — | CryptoPanic key for crypto news feed |
-| `CLIENT_URL` | — | Frontend origin for CORS (default `http://localhost:5173`) |
-| `NODE_ENV` | — | `development` or `production` |
+| `JWT_SECRET` | ✓ | Long random string — change in production |
+| `OPENROUTER_API_KEY` | — | openrouter.ai — free tier available |
+| `HUGGINGFACE_API_KEY` | — | huggingface.co/settings/tokens — free |
+| `CRYPTOPANIC_API_KEY` | — | cryptopanic.com — optional, uses fallback if absent |
+| `CLIENT_URL` | — | Frontend origin for CORS (default: `http://localhost:5173`) |
+| `PORT` | — | HTTP port (default: `5000`) |
+| `SMTP_HOST/PORT/USER/PASS/FROM` | — | Email, production only for password reset |
 
 ### Client (`client/.env`)
-
 | Variable | Required | Description |
-|----------|----------|-------------|
-| `VITE_API_URL` | ✓ | Backend base URL (default `http://localhost:5000`) |
+|---|---|---|
+| `VITE_API_URL` | ✓ | Backend URL (default: `http://localhost:5000`) |
 
 ---
 
-## Deployment
+## 🚢 Deployment
 
 ### Client → Vercel
-
-```bash
-cd client
-npm run build          # verify build passes locally
-# push to GitHub, import repo in Vercel
-# set VITE_API_URL to your Render backend URL
-```
+1. Push repo to GitHub
+2. Import in Vercel, set root directory to `client/`
+3. Set env var: `VITE_API_URL=https://your-render-api.onrender.com`
+4. Deploy — `vercel.json` handles SPA routing
 
 ### Server → Render
+1. New Web Service → connect repo, root dir: `server/`
+2. Build: `npm install` · Start: `npm start`
+3. Add all env vars from `server/.env.example` in Render dashboard
+4. After first deploy, open Render Shell and run:
+   ```bash
+   node db/init.js    # first-time schema
+   node db/migrate.js # subsequent column additions
+   ```
 
-- New Web Service → connect repo, set root dir to `server/`
-- Build command: `npm install`
-- Start command: `npm start`
-- Add all env vars from `server/.env.example` in the Render dashboard
-- Run `npm run db:init` once after first deploy (use Render shell)
+---
+
+## 🧪 Tests
+
+```bash
+# Backend — Jest + Supertest (29 tests, 4 suites)
+cd server && npm test
+
+# Frontend — Vitest + React Testing Library (45 tests, 9 suites)
+cd client && npm test
+```
+
+Coverage: auth flows, preferences CRUD, vote validation, dashboard resilience, coin modal, theme toggle, drawer, onboarding wizard, protected routes.
+
+---
+
+## 💡 Feedback Model
+
+Each dashboard section has 👍/👎 vote buttons. Votes are stored per-user in the `votes` table with `(user_id, section, item_id)` unique constraint — submitting the same vote again updates it (upsert). Future ML iterations can use aggregated vote data to personalize content ranking.
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repo
+2. Create a feature branch: `git checkout -b feat/my-feature`
+3. Commit your changes: `git commit -m 'feat: add something'`
+4. Push and open a PR
+
+Please run `npm test` in both `server/` and `client/` before submitting.

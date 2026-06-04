@@ -1,44 +1,16 @@
 # Prompt Log
 
-This file tracks AI prompts used in complex or non-obvious code sections.
-Only add an entry when the generated logic would be hard to reconstruct without the original intent.
+Tracks AI prompts for non-obvious design decisions. Max 10 entries.
 
----
-
-## Format
-
-```
-### [YYYY-MM-DD] <short title>
-**File:** `path/to/file.ts` (line range)
-**Prompt:** <the prompt or key instruction given to the AI>
-**Why logged:** <what makes this logic non-obvious>
-```
-
----
-
-## Entries
-
-### [2026-06-04] Database schema design
-**File:** `server/db/schema.sql`
-**Prompt:**
-> Design a PostgreSQL schema for a personalized crypto dashboard with users, per-user asset/content preferences, and a voting system (thumbs up/down) on sections like news, signals, and coins. Use UUIDs, proper FK constraints, and indexes for query patterns.
-
-**Why logged:** The `votes` table uses a composite unique constraint `(user_id, section, item_id)` with an upsert pattern — the combination is intentional to allow vote updates without duplicates across arbitrary content sections.
-
----
-
-### [2026-06-04] JWT auth middleware
-**File:** `server/src/middleware/auth.js`
-**Prompt:**
-> Write Express middleware that validates a Bearer JWT, attaches the decoded payload to `req.user`, and returns structured JSON errors (not HTML) for missing/expired tokens.
-
-**Why logged:** The middleware intentionally swallows the JWT error detail (instead of forwarding `err.message`) to avoid leaking token internals to clients.
-
----
-
-### [2026-06-04] Startup DB connection check
-**File:** `server/src/index.js`
-**Prompt:**
-> Add a startup check that pings the database before the server begins accepting connections. If the DB is unreachable, log a helpful error and exit. Also expose DB status in the /health endpoint.
-
-**Why logged:** `process.exit(1)` on DB failure is deliberate — a server with no DB should not silently start and return 500s on every request.
+| Date | File | Prompt summary | Why logged |
+|------|------|---------------|------------|
+| 2026-06-04 | `server/db/schema.sql` | Design PostgreSQL schema with users, per-user preferences (arrays), and a voting system with upsert on (user_id, section, item_id) | The composite unique constraint enables vote updates without duplicates across arbitrary content sections |
+| 2026-06-04 | `server/src/middleware/auth.js` | Write JWT middleware that returns structured JSON errors (not HTML) and does not leak token internals | Error detail is intentionally swallowed to prevent token structure exposure |
+| 2026-06-04 | `server/src/index.js` | Add startup DB ping that exits the process if unreachable, and expose DB status in /health | `process.exit(1)` on DB failure is deliberate — a server with no DB should not silently start |
+| 2026-06-04 | `server/src/routes/dashboard.js` | Tiered in-memory cache (60s/5min/10min) with a separate stale Map that keeps last-good data indefinitely for offline fallback | Two-layer cache (live + stale) is intentional: live evicts on TTL, stale never evicts so degraded mode always has data |
+| 2026-06-04 | `server/src/routes/dashboard.js` | OpenRouter fallback chain: try 3 free-tier models → HuggingFace → static paragraph | The `:free` model suffix is required by OpenRouter's free tier; static fallback ensures AI card is never empty |
+| 2026-06-04 | `client/src/index.css` | CSS custom property token system with dark/light values; light mode overrides applied via `html.light` class | Components use `var(--c-bg)` etc. so a single class toggle themes the entire app without touching component files |
+| 2026-06-04 | `client/src/pages/Dashboard.tsx` | 60-second auto-refresh interval + localStorage cache; on fetch failure load from cache and show stale banner | Interval is reset on every mount (not on every render) to avoid interval stacking; localStorage avoids blank screen on offline load |
+| 2026-06-04 | `server/src/app.js` | Rate limiter skipped when `NODE_ENV === 'test'` to prevent 429s in Jest test suite | Rate limiter counts per-IP; running 30+ auth tests in a single Jest process on loopback exhausts the window |
+| 2026-06-04 | `client/src/components/CoinModal.tsx` | Momentum score = `c24h×0.5 + c7d×0.3 + c30d×0.2` clamped to [−50,+50] then normalized to 0–100 | Weighted average gives recent price action more influence; normalization maps natural percentage swings to the 0–100 sentiment scale |
+| 2026-06-04 | `client/tsconfig.app.json` | Exclude `src/__tests__` and `src/test` from the app tsconfig; add separate `tsconfig.test.json` with `vitest/globals` | Vitest globals (`test`, `expect`, `vi`) are not in scope for the production build; separate configs prevent spurious TS errors in `npm run build` |

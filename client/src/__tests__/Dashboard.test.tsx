@@ -9,6 +9,7 @@ import Dashboard from '../pages/Dashboard';
 vi.mock('../api/dashboard', () => ({ getDashboard: vi.fn() }));
 vi.mock('../api/votes',     () => ({ getVotes: vi.fn(), castVote: vi.fn() }));
 vi.mock('../api/preferences',() => ({ getPreferences: vi.fn() }));
+vi.mock('../api/alerts',    () => ({ deleteAlert: vi.fn().mockResolvedValue({}) }));
 
 import * as dashApi  from '../api/dashboard';
 import * as votesApi from '../api/votes';
@@ -83,4 +84,25 @@ test('shows stale banner when localStorage used', async () => {
   localStorage.setItem('dashboard_cache', JSON.stringify({ data: DASH_DATA, at: Date.now() }));
   render(<Wrapper />);
   await waitFor(() => expect(screen.getByText(/showing cached data/i)).toBeInTheDocument());
+});
+
+// ─── Meme refresh ──────────────────────────────────────────────────────────
+
+test('renders meme title', async () => {
+  render(<Wrapper />);
+  // MemeCard wraps title in quotes: "Test meme"
+  await waitFor(() => expect(screen.getByText(/Test meme/)).toBeInTheDocument());
+});
+
+test('New Meme button is disabled when only one meme is loaded', async () => {
+  render(<Wrapper />);
+  await waitFor(() => expect(screen.getByText('🔀 New Meme')).toBeInTheDocument());
+  expect(screen.getByText('🔀 New Meme').closest('button')).toBeDisabled();
+});
+
+test('New Meme button click does nothing when disabled (1 meme)', async () => {
+  render(<Wrapper />);
+  await waitFor(() => screen.getByText('🔀 New Meme'));
+  await userEvent.click(screen.getByText('🔀 New Meme').closest('button')!);
+  expect(screen.getByText(/Test meme/)).toBeInTheDocument();
 });
