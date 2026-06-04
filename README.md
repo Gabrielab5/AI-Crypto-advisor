@@ -11,8 +11,9 @@ A personalized crypto investor dashboard powered by AI. Users complete a short o
 | 1 | Monorepo scaffold, DB schema, Express setup, Tailwind dark theme | ✅ Done |
 | 2 | Auth — register, login, JWT, protected routes, auth UI | ✅ Done |
 | 3 | Onboarding wizard — asset picker, risk profile, content prefs | ✅ Done |
-| 4 | AI analysis feed — OpenRouter integration | ⬜ Planned |
-| 5 | Live data — prices, news, signals | ⬜ Planned |
+| 4 | Dashboard — coin prices, news, AI insight, meme + vote system | ✅ Done |
+| 5 | AI fix, auto-refresh, caching, drawer, theme, password reset, test suite | ✅ Done |
+| 6 | Deploy (Vercel + Render) | 🔜 Next |
 
 ---
 
@@ -74,7 +75,17 @@ cp server/.env.example server/.env
 cp client/.env.example client/.env
 ```
 
-### 3. Create the database and apply schema
+### 3. Set up the database
+
+```bash
+# First-time setup: creates DB + applies full schema
+cd server && npm run db:init
+
+# On existing installs: add new columns only (safe to run multiple times)
+cd server && npm run db:migrate
+```
+
+### 3b. Create the database and apply schema
 
 ```bash
 # Creates the DB if it doesn't exist, then applies all tables
@@ -141,6 +152,14 @@ Base URL: `http://localhost:5000`
 |--------|----------|-------------|
 | GET | `/api/users/me` | Current user + preferences |
 | PATCH | `/api/users/preferences` | Update interested assets, risk type, content types |
+
+### Dashboard _(requires auth)_
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/dashboard` | Returns all 4 sections — coin prices (CoinGecko), news (CryptoPanic / fallback), AI insight (OpenRouter), random meme |
+
+Data is personalized by `interested_assets` and `investor_type` from saved preferences. CoinGecko results are cached 5 minutes in-memory.
 
 ### Preferences _(requires auth)_
 

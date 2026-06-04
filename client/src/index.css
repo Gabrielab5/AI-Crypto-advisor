@@ -2,31 +2,62 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Theme tokens ────────────────────────────────────────────────────────── */
+:root {
+  --c-bg:      #0d0d0d;
+  --c-surface: #1a1a1a;
+  --c-s2:      #242424;
+  --c-border:  #2a2a2a;
+  --c-text:    #e5e7eb;
+  --c-muted:   #6b7280;
+  --c-accent:  #00ff88;
+  --c-accent2: #00cc6a;
+}
+html.light {
+  --c-bg:      #f5f5f5;
+  --c-surface: #ffffff;
+  --c-s2:      #f0f0f0;
+  --c-border:  #e5e7eb;
+  --c-text:    #111827;
+  --c-muted:   #6b7280;
+  --c-accent:  #00aa55;
+  --c-accent2: #007a3d;
+}
+
 @layer base {
-  *, *::before, *::after {
-    box-sizing: border-box;
-  }
+  *, *::before, *::after { box-sizing: border-box; }
 
   html, body {
-    margin: 0;
-    padding: 0;
-    background-color: #0d0d0d;
-    color: #e5e7eb;
+    margin: 0; padding: 0;
+    background-color: var(--c-bg);
+    color: var(--c-text);
     font-family: Inter, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.2s, color 0.2s;
   }
-
-  #root {
-    min-height: 100vh;
-  }
+  #root { min-height: 100vh; }
 }
 
+/* Light-mode overrides for hardcoded Tailwind arbitrary-value classes */
+html.light [class*="bg-\\[\\#0d0d0d\\]"] { background-color: var(--c-bg)      !important; }
+html.light [class*="bg-\\[\\#1a1a1a\\]"] { background-color: var(--c-surface) !important; }
+html.light [class*="bg-\\[\\#242424\\]"] { background-color: var(--c-s2)      !important; }
+html.light [class*="border-\\[\\#2a2a2a\\]"] { border-color: var(--c-border)  !important; }
+html.light .text-white   { color: var(--c-text)  !important; }
+html.light .text-gray-300{ color: #374151         !important; }
+html.light .text-gray-400{ color: #4b5563         !important; }
+html.light .text-gray-500{ color: #6b7280         !important; }
+html.light .text-gray-600{ color: #9ca3af         !important; }
+html.light .text-gray-700{ color: #d1d5db         !important; }
+html.light .divide-\\[\\#242424\\] > * + * { border-color: #e5e7eb !important; }
+html.light [class*="hover\\:bg-\\[\\#242424\\]"]:hover { background-color: #f0f0f0 !important; }
+
 @layer utilities {
-  .text-accent { color: #00ff88; }
-  .bg-surface  { background-color: #1a1a1a; }
-  .bg-surface-2 { background-color: #242424; }
-  .border-border { border-color: #2a2a2a; }
+  .text-accent   { color: var(--c-accent); }
+  .bg-surface    { background-color: var(--c-surface); }
+  .bg-surface-2  { background-color: var(--c-s2); }
+  .border-border { border-color: var(--c-border); }
 }
 
 @keyframes slide-in-right {
@@ -37,5 +68,10 @@
   from { opacity: 0; transform: translateX(-36px); }
   to   { opacity: 1; transform: translateX(0); }
 }
+@keyframes drawer-in {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
 .animate-slide-in-right { animation: slide-in-right 0.22s ease-out both; }
 .animate-slide-in-left  { animation: slide-in-left  0.22s ease-out both; }
+.animate-drawer-in      { animation: drawer-in      0.25s ease-out both; }

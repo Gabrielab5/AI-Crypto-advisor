@@ -2,11 +2,17 @@ const router = require('express').Router();
 const pool = require('../db/pool');
 const { requireAuth } = require('../middleware/auth');
 
-// POST /api/votes
+// POST /api/votes — accepts vote: 'up'|'down'|1|-1
 router.post('/', requireAuth, async (req, res) => {
   const { section, item_id, vote } = req.body;
-  if (!section || !item_id || ![1, -1].includes(vote)) {
-    return res.status(400).json({ error: 'section, item_id, and vote (1 or -1) are required' });
+
+  let voteNum;
+  if (vote === 'up'   || vote ===  1) voteNum =  1;
+  else if (vote === 'down' || vote === -1) voteNum = -1;
+  else return res.status(400).json({ error: 'vote must be "up", "down", 1, or -1' });
+
+  if (!section || !item_id) {
+    return res.status(400).json({ error: 'section and item_id are required' });
   }
   try {
     const { rows } = await pool.query(
@@ -14,7 +20,7 @@ router.post('/', requireAuth, async (req, res) => {
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (user_id, section, item_id) DO UPDATE SET vote = EXCLUDED.vote
        RETURNING *`,
-      [req.user.id, section, item_id, vote]
+      [req.user.id, section, item_id, voteNum]
     );
     res.json(rows[0]);
   } catch (err) {
