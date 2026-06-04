@@ -4,6 +4,18 @@ A personalized crypto investor dashboard powered by AI. Users complete a short o
 
 ---
 
+## Build Progress
+
+| Stage | Description | Status |
+|-------|-------------|--------|
+| 1 | Monorepo scaffold, DB schema, Express setup, Tailwind dark theme | ✅ Done |
+| 2 | Auth — register, login, JWT, protected routes, auth UI | ✅ Done |
+| 3 | Onboarding wizard — asset picker, risk profile, content prefs | 🔜 Next |
+| 4 | AI analysis feed — OpenRouter integration | ⬜ Planned |
+| 5 | Live data — prices, news, signals | ⬜ Planned |
+
+---
+
 ## Architecture
 
 ```
@@ -65,17 +77,11 @@ cp client/.env.example client/.env
 ### 3. Create the database and apply schema
 
 ```bash
-# Create the database (run once)
-createdb ai_crypto_advisor
-
-# Apply schema (creates all tables)
+# Creates the DB if it doesn't exist, then applies all tables
 cd server && npm run db:init
 ```
 
-If `createdb` is not on your PATH, open pgAdmin or run:
-```sql
-CREATE DATABASE ai_crypto_advisor;
-```
+> `db:init` connects to PostgreSQL via `DATABASE_URL`, auto-creates `ai_crypto_advisor` if missing, and runs `server/db/schema.sql`. Re-running it is safe — all statements use `IF NOT EXISTS`.
 
 ### 4. Run in development
 
@@ -100,6 +106,21 @@ votes              — id, user_id (FK), section, item_id, vote (+1/-1), created
 ```
 
 Full schema: [`server/db/schema.sql`](server/db/schema.sql)
+
+---
+
+## Frontend Routes
+
+| Route | Auth | Page |
+|-------|------|------|
+| `/register` | Public | Register form → on success → `/onboarding` |
+| `/login` | Public | Login form → on success → `/dashboard` |
+| `/onboarding` | Protected (JWT) | Welcome screen + progress indicator |
+| `/dashboard` | Protected (JWT) | Main dashboard with nav + sign-out |
+| `/*` | — | Redirects to `/login` |
+
+Both `/login` and `/register` redirect to `/dashboard` when already authenticated.
+JWT is stored in `localStorage` and injected into every request via an axios interceptor (`client/src/api/client.ts`).
 
 ---
 
