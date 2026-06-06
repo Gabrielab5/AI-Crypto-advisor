@@ -18,6 +18,8 @@ export default function Login() {
   const auth = useAuth();
   const navigate = useNavigate();
 
+  useEffect(() => { document.title = 'Sign In | AI Crypto Advisor'; }, []);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({});

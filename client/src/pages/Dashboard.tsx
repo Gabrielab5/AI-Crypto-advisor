@@ -12,7 +12,6 @@ import { castVote, deleteVote, getVotes, type VoteRecord } from '../api/votes';
 import { deleteAlert } from '../api/alerts';
 import { getWatchlist, addToWatchlist, removeFromWatchlist, type WatchlistItem } from '../api/watchlist';
 import { getMarketCoins } from '../api/coins';
-import api from '../api/client';
 import Drawer         from '../components/Drawer';
 import CoinModal      from '../components/CoinModal';
 import WatchlistPanel from '../components/WatchlistPanel';
@@ -355,6 +354,8 @@ export default function Dashboard() {
 
   const notifRef    = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval>|null>(null);
+
+  useEffect(() => { document.title = 'Dashboard | AI Crypto Advisor'; }, []);
 
   // Onboarding guard + initial watchlist load
   useEffect(() => {

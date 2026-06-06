@@ -100,6 +100,8 @@ interface Answers {
 export default function Onboarding() {
   const navigate = useNavigate();
 
+  useEffect(() => { document.title = 'Get Started | AI Crypto Advisor'; }, []);
+
   const [step, setStep]           = useState(0);
   const [direction, setDirection] = useState<'forward' | 'back'>('forward');
   const [answers, setAnswers]     = useState<Answers>({ interested_assets: [], investor_type: '', content_types: [] });

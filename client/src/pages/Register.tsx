@@ -17,6 +17,8 @@ export default function Register() {
   const auth = useAuth();
   const navigate = useNavigate();
 
+  useEffect(() => { document.title = 'Sign In | AI Crypto Advisor'; }, []);
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
