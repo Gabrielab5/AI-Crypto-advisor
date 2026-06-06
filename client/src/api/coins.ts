@@ -1,4 +1,5 @@
 import api from './client';
+import type { CoinPrice } from './dashboard';
 
 export interface CoinDetail {
   id: string; name: string; symbol: string; image: string;
@@ -14,3 +15,6 @@ export const getCoinDetail = (id: string) =>
 
 export const getCoinChart = (id: string, days: 7 | 30 = 7) =>
   api.get<ChartPoint[]>(`/api/coins/${id}/chart?days=${days}`);
+
+export const getMarketCoins = (page = 2, perPage = 10) =>
+  api.get<CoinPrice[]>('/api/coins/market', { params: { page, per_page: perPage } });

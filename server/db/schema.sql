@@ -51,6 +51,16 @@ CREATE TABLE IF NOT EXISTS ai_insight_history (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS watchlist (
+  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  coin_id     VARCHAR(100) NOT NULL,
+  coin_symbol VARCHAR(20)  NOT NULL,
+  coin_name   VARCHAR(100),
+  added_at    TIMESTAMPTZ  DEFAULT NOW(),
+  UNIQUE (user_id, coin_id)
+);
+
 -- Indices
 CREATE INDEX IF NOT EXISTS idx_votes_user_id       ON votes(user_id);
 CREATE INDEX IF NOT EXISTS idx_votes_section_item  ON votes(section, item_id);
@@ -58,3 +68,4 @@ CREATE INDEX IF NOT EXISTS idx_users_reset_token   ON users(reset_token) WHERE r
 CREATE INDEX IF NOT EXISTS idx_alerts_user         ON price_alerts(user_id);
 CREATE INDEX IF NOT EXISTS idx_alerts_active       ON price_alerts(user_id) WHERE triggered = FALSE;
 CREATE INDEX IF NOT EXISTS idx_insight_history     ON ai_insight_history(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_watchlist_user      ON watchlist(user_id);

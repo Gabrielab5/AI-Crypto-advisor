@@ -47,6 +47,21 @@ describe('POST /api/votes', () => {
   });
 });
 
+describe('DELETE /api/votes', () => {
+  it('removes a vote (toggle-off)', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(app).delete('/api/votes').set(AUTH).send({ section:'coin_prices', item_id:'main' });
+    expect(res.status).toBe(200);
+    expect(res.body.deleted).toBe(true);
+    expect(pool.query).toHaveBeenCalledWith(expect.any(String), [USER_ID, 'coin_prices', 'main']);
+  });
+
+  it('requires section and item_id', async () => {
+    const res = await request(app).delete('/api/votes').set(AUTH).send({ section:'coin_prices' });
+    expect(res.status).toBe(400);
+  });
+});
+
 describe('GET /api/votes', () => {
   it('returns all votes for user', async () => {
     pool.query.mockResolvedValueOnce({ rows: [VOTE] });
@@ -60,5 +75,28 @@ describe('GET /api/votes', () => {
     const res = await request(app).get('/api/votes?section=coin_prices').set(AUTH);
     expect(res.status).toBe(200);
     expect(pool.query).toHaveBeenCalledWith(expect.stringContaining('section'), expect.arrayContaining([USER_ID, 'coin_prices']));
+  });
+});
+
+describe('GET /api/votes/summary', () => {
+  it('returns liked and disliked coin arrays', async () => {
+    pool.query.mockResolvedValueOnce({
+      rows: [
+        { item_id: 'bitcoin',  vote:  1 },
+        { item_id: 'ethereum', vote: -1 },
+      ],
+    });
+    const res = await request(app).get('/api/votes/summary').set(AUTH);
+    expect(res.status).toBe(200);
+    expect(res.body.liked).toContain('bitcoin');
+    expect(res.body.disliked).toContain('ethereum');
+  });
+
+  it('returns empty arrays when no coin votes exist', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(app).get('/api/votes/summary').set(AUTH);
+    expect(res.status).toBe(200);
+    expect(res.body.liked).toHaveLength(0);
+    expect(res.body.disliked).toHaveLength(0);
   });
 });

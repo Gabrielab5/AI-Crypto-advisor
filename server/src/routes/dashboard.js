@@ -9,11 +9,13 @@ const _live  = new Map();
 const _stale = new Map();
 
 function getCached(key) {
+  const ttl = TTL[key] ?? TTL[key.startsWith('ai_insight_') ? 'ai_insight' : 'coingecko'];
   const e = _live.get(key);
-  return e && Date.now() - e.at < TTL[key] ? e.data : null;
+  return e && Date.now() - e.at < ttl ? e.data : null;
 }
 function setCached(key, data) { _live.set(key, { data, at: Date.now() }); _stale.set(key, data); }
 function getStale(key) { return _stale.get(key) ?? null; }
+function bustCache(key) { _live.delete(key); }
 
 // ─── Asset → CoinGecko id ─────────────────────────────────────────────────
 const COIN_ID = {
@@ -24,47 +26,60 @@ const COIN_ID = {
 };
 
 // ─── Coin prices ──────────────────────────────────────────────────────────
-async function fetchCoinPrices(prefs) {
+async function fetchCoinPrices(prefs, dislikedIds = []) {
   const cached = getCached('coingecko');
   let all = cached;
   if (!all) {
     const res = await fetch(
       'https://api.coingecko.com/api/v3/coins/markets' +
-      '?vs_currency=usd&order=market_cap_desc&per_page=20&sparkline=false&price_change_percentage=24h',
+      '?vs_currency=usd&order=market_cap_desc&per_page=30&sparkline=false&price_change_percentage=24h',
       { headers: { Accept:'application/json' }, signal: AbortSignal.timeout(8000) }
     );
     if (!res.ok) {
       const stale = getStale('coingecko');
-      if (stale) return { data: filterCoins(stale, prefs), stale: true };
+      if (stale) return { data: filterCoins(stale, prefs, dislikedIds), stale: true };
       throw new Error(`CoinGecko HTTP ${res.status}`);
     }
     all = await res.json();
     setCached('coingecko', all);
   }
-  return { data: filterCoins(all, prefs), stale: false };
+  return { data: filterCoins(all, prefs, dislikedIds), stale: false };
 }
 
-function filterCoins(all, prefs) {
-  const ids = (prefs.interested_assets||[]).map(a => COIN_ID[a]).filter(Boolean);
-  const preferred = ids.length ? all.filter(c => ids.includes(c.id)) : [];
-  const result = [...preferred];
+function filterCoins(all, prefs, dislikedIds = []) {
+  const ids       = (prefs.interested_assets||[]).map(a => COIN_ID[a]).filter(Boolean);
+  const preferred = ids.length ? all.filter(c => ids.includes(c.id) && !dislikedIds.includes(c.id)) : [];
+  const result    = [...preferred];
+
   for (const coin of all) {
     if (result.length >= 8) break;
-    if (!result.find(c => c.id === coin.id)) result.push(coin);
+    if (!result.find(c => c.id === coin.id) && !dislikedIds.includes(coin.id)) result.push(coin);
   }
-  return result.slice(0,8).map(c => ({
-    id:c.id, name:c.name, symbol:c.symbol.toUpperCase(), image:c.image,
-    price:c.current_price, change_24h:c.price_change_percentage_24h??0, market_cap:c.market_cap,
+  // Fallback: if exclusions left fewer than 4 coins, fill without exclusion filter
+  if (result.length < 4) {
+    for (const coin of all) {
+      if (result.length >= 8) break;
+      if (!result.find(c => c.id === coin.id)) result.push(coin);
+    }
+  }
+  return result.slice(0, 8).map(c => ({
+    id: c.id, name: c.name, symbol: c.symbol.toUpperCase(), image: c.image,
+    price: c.current_price, change_24h: c.price_change_percentage_24h ?? 0, market_cap: c.market_cap,
   }));
 }
 
 // ─── News ─────────────────────────────────────────────────────────────────
 const FALLBACK_NEWS = [
-  { id:'fn1', title:'Bitcoin consolidates above key support as institutional demand holds steady',  url:'#', source:'CryptoDesk',    published_at:new Date().toISOString() },
-  { id:'fn2', title:'Ethereum Layer 2 transaction volumes reach new all-time highs',                url:'#', source:'DeFi Pulse',    published_at:new Date().toISOString() },
-  { id:'fn3', title:'On-chain data shows record number of long-term Bitcoin holders accumulating',  url:'#', source:'Glassnode',     published_at:new Date().toISOString() },
-  { id:'fn4', title:'Solana DeFi TVL surpasses $5B milestone for the first time',                  url:'#', source:'The Block',     published_at:new Date().toISOString() },
-  { id:'fn5', title:'Regulatory clarity drives renewed interest from asset managers globally',      url:'#', source:'Reuters Crypto',published_at:new Date().toISOString() },
+  { id:'fn1', title:'Bitcoin consolidates above key support as institutional demand holds steady',
+    url:'https://www.coindesk.com',      source:'CoinDesk',      published_at: new Date().toISOString() },
+  { id:'fn2', title:'Ethereum Layer 2 transaction volumes reach new all-time highs',
+    url:'https://cointelegraph.com',     source:'CoinTelegraph',  published_at: new Date().toISOString() },
+  { id:'fn3', title:'On-chain data shows record number of long-term Bitcoin holders accumulating',
+    url:'https://decrypt.co',            source:'Decrypt',        published_at: new Date().toISOString() },
+  { id:'fn4', title:'Solana DeFi TVL surpasses $5B milestone for the first time',
+    url:'https://www.theblock.co',       source:'The Block',      published_at: new Date().toISOString() },
+  { id:'fn5', title:'Regulatory clarity drives renewed interest from asset managers globally',
+    url:'https://blockworks.co',         source:'Blockworks',     published_at: new Date().toISOString() },
 ];
 
 async function fetchMarketNews(prefs) {
@@ -80,8 +95,8 @@ async function fetchMarketNews(prefs) {
     if (!res.ok) { const s=getStale('cryptopanic'); return s?{data:s,stale:true}:{data:FALLBACK_NEWS,stale:false}; }
     const json = await res.json();
     const news = (json.results||[]).slice(0,5).map(item => ({
-      id:String(item.id), title:item.title, url:item.url,
-      source:item.source?.title??'CryptoPanic', published_at:item.published_at,
+      id: String(item.id), title: item.title, url: item.url,
+      source: item.source?.title ?? 'CryptoPanic', published_at: item.published_at,
     }));
     setCached('cryptopanic', news);
     return { data: news, stale: false };
@@ -103,8 +118,9 @@ async function callOpenRouter(prompt) {
   for (const model of models) {
     try {
       const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${process.env.OPENROUTER_API_KEY}`, 'HTTP-Referer':process.env.CLIENT_URL||'http://localhost:5173', 'X-Title':'AI Crypto Advisor' },
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${process.env.OPENROUTER_API_KEY}`,
+                   'HTTP-Referer': process.env.CLIENT_URL||'http://localhost:5173', 'X-Title':'AI Crypto Advisor' },
         body: JSON.stringify({ model, messages:[{role:'user',content:prompt}], max_tokens:200, temperature:0.75 }),
         signal: AbortSignal.timeout(15000),
       });
@@ -113,7 +129,7 @@ async function callOpenRouter(prompt) {
       if (json.error) { console.error(`[OpenRouter] ${model}:`, JSON.stringify(json.error)); continue; }
       const text = json.choices?.[0]?.message?.content?.trim();
       if (!text) continue;
-      return { text, model: json.model??model };
+      return { text, model: json.model ?? model };
     } catch (err) { console.error(`[OpenRouter] ${model}:`, err.message); }
   }
   return null;
@@ -123,8 +139,8 @@ async function callHuggingFace(prompt) {
   if (!process.env.HUGGINGFACE_API_KEY) return null;
   try {
     const res = await fetch('https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2', {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${process.env.HUGGINGFACE_API_KEY}` },
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${process.env.HUGGINGFACE_API_KEY}` },
       body: JSON.stringify({ inputs:`<s>[INST] ${prompt} [/INST]`, parameters:{ max_new_tokens:200, return_full_text:false, temperature:0.75 } }),
       signal: AbortSignal.timeout(20000),
     });
@@ -135,16 +151,15 @@ async function callHuggingFace(prompt) {
   } catch (err) { console.error('[HuggingFace]:', err.message); return null; }
 }
 
-async function fetchAIInsight(prefs, userId) {
+async function fetchAIInsight(prefs, userId, dislikedCoinIds = []) {
   const cacheKey = `ai_insight_${userId}`;
-  const cached = getCached(cacheKey);
+  const cached   = getCached(cacheKey);
   if (cached) return { data: cached, stale: false };
 
-  const assets      = (prefs.interested_assets||[]).join(', ') || 'Bitcoin and Ethereum';
+  const assets       = (prefs.interested_assets||[]).join(', ') || 'Bitcoin and Ethereum';
   const investorType = prefs.investor_type || 'hodler';
-  const today       = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+  const today        = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
 
-  // ── Feature 5: memory — fetch last 5 insights for context ─────────────
   let memoryContext = '';
   try {
     const { rows: history } = await pool.query(
@@ -153,11 +168,15 @@ async function fetchAIInsight(prefs, userId) {
     );
     if (history.length > 0) {
       const prevList = history.map((r,i) => `${i+1}. "${r.text}"`).join('\n');
-      memoryContext = `\n\nPrevious insights you gave this user (do NOT repeat these points, build on or update them):\n${prevList}\n`;
+      memoryContext = `\n\nPrevious insights you gave this user (do NOT repeat these points):\n${prevList}\n`;
     }
   } catch { /* non-fatal */ }
 
-  const prompt = `Give a short 3-sentence crypto market insight for a ${investorType} investor interested in ${assets}. Today is ${today}. Be concise, specific, and actionable. Do not use bullet points or headers.${memoryContext}`;
+  const dislikedStr = dislikedCoinIds.length
+    ? `\n\nThe user has expressed disinterest in: ${dislikedCoinIds.join(', ')}. Do not focus on these. Prioritize their preferred assets: ${assets}.`
+    : '';
+
+  const prompt = `Give a short 3-sentence crypto market insight for a ${investorType} investor interested in ${assets}. Today is ${today}. Be concise, specific, and actionable. Do not use bullet points or headers.${dislikedStr}${memoryContext}`;
 
   let result = null;
   if (process.env.OPENROUTER_API_KEY) result = await callOpenRouter(prompt);
@@ -172,9 +191,8 @@ async function fetchAIInsight(prefs, userId) {
   const insight = { text: result.text, model: result.model, generated_at: new Date().toISOString() };
   setCached(cacheKey, insight);
 
-  // Save to history (fire-and-forget, keep only 10 per user)
   pool.query(
-    `INSERT INTO ai_insight_history (user_id, text, model) VALUES ($1, $2, $3)`,
+    'INSERT INTO ai_insight_history (user_id, text, model) VALUES ($1, $2, $3)',
     [userId, insight.text, insight.model]
   ).then(() => pool.query(
     `DELETE FROM ai_insight_history WHERE user_id = $1 AND id NOT IN (
@@ -185,7 +203,7 @@ async function fetchAIInsight(prefs, userId) {
   return { data: insight, stale: false };
 }
 
-// ─── Feature 4: alert checking ────────────────────────────────────────────
+// ─── Alert checking ────────────────────────────────────────────────────────
 async function checkAlerts(userId, prices) {
   try {
     const { rows: alerts } = await pool.query(
@@ -206,31 +224,54 @@ async function checkAlerts(userId, prices) {
           'UPDATE price_alerts SET triggered = TRUE, triggered_at = NOW() WHERE id = $1',
           [alert.id]
         );
-        triggered.push({
-          ...alert,
-          target_price:  parseFloat(alert.target_price),
-          current_price: coin.price,
-          triggered_at:  new Date().toISOString(),
-        });
+        triggered.push({ ...alert, target_price: parseFloat(alert.target_price),
+          current_price: coin.price, triggered_at: new Date().toISOString() });
       }
     }
     return triggered;
   } catch { return []; }
 }
 
+// ─── Cache warmup (called on server startup) ───────────────────────────────
+async function warmCache() {
+  if (getCached('coingecko')) return; // already warm
+  const prefs = { interested_assets: [], investor_type: 'hodler', content_types: [] };
+  await fetchCoinPrices(prefs, []);
+}
+
 // ─── GET /api/dashboard ───────────────────────────────────────────────────
 router.get('/', requireAuth, async (req, res) => {
-  const userId = req.user.id;
+  const { section, bypass_cache } = req.query;
+  const userId  = req.user.id;
+  const bypassC = bypass_cache === 'true';
+
   let prefs = { interested_assets:[], investor_type:'hodler', content_types:[] };
   try {
     const { rows } = await pool.query('SELECT * FROM user_preferences WHERE user_id = $1', [userId]);
     if (rows[0]) prefs = rows[0];
   } catch {}
 
+  // ── Fetch disliked coin IDs for feedback loop ──────────────────────────
+  let dislikedCoinIds = [];
+  try {
+    const { rows } = await pool.query(
+      "SELECT item_id FROM votes WHERE user_id=$1 AND section='coin_prices' AND vote=-1 AND item_id!='main'",
+      [userId]
+    );
+    dislikedCoinIds = rows.map(r => r.item_id).filter(Boolean);
+  } catch {}
+
+  // ── Single-section bypass (for AI insight refresh) ─────────────────────
+  if (section === 'ai_insight' && bypassC) {
+    bustCache(`ai_insight_${userId}`);
+    const { data: insight } = await fetchAIInsight(prefs, userId, dislikedCoinIds);
+    return res.json({ ai_insight: insight, fetched_at: new Date().toISOString() });
+  }
+
   const [pricesResult, newsResult, insightResult] = await Promise.allSettled([
-    fetchCoinPrices(prefs),
+    fetchCoinPrices(prefs, dislikedCoinIds),
     fetchMarketNews(prefs),
-    fetchAIInsight(prefs, userId),
+    fetchAIInsight(prefs, userId, dislikedCoinIds),
   ]);
 
   const staleFlags = [];
@@ -242,20 +283,20 @@ router.get('/', requireAuth, async (req, res) => {
     return fallback;
   };
 
-  const coinPrices = extract(pricesResult, []);
-
-  // Check price alerts against live prices
+  const coinPrices      = extract(pricesResult, []);
   const triggeredAlerts = await checkAlerts(userId, coinPrices);
 
   res.json({
-    coin_prices:       coinPrices,
-    market_news:       extract(newsResult, FALLBACK_NEWS),
-    ai_insight:        extract(insightResult, { ...STATIC_INSIGHT, generated_at:new Date().toISOString() }),
-    meme:              memes[Math.floor(Math.random() * memes.length)],
-    triggered_alerts:  triggeredAlerts,
-    stale:             staleFlags.length > 0,
-    fetched_at:        new Date().toISOString(),
+    coin_prices:      coinPrices,
+    market_news:      extract(newsResult,   FALLBACK_NEWS),
+    ai_insight:       extract(insightResult, { ...STATIC_INSIGHT, generated_at: new Date().toISOString() }),
+    meme:             memes[Math.floor(Math.random() * memes.length)],
+    memes:            memes,
+    triggered_alerts: triggeredAlerts,
+    stale:            staleFlags.length > 0,
+    fetched_at:       new Date().toISOString(),
   });
 });
 
 module.exports = router;
+module.exports.warmCache = warmCache;

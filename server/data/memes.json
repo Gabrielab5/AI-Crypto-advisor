@@ -1,52 +1,77 @@
 [
   {
     "id": "1",
-    "title": "When Bitcoin dips 5% right after you bought the dip",
-    "imageUrl": "https://picsum.photos/seed/crypto-dip/600/380"
+    "title": "Portfolio -40%. This is fine.",
+    "imageUrl": "https://api.memegen.link/images/thisisfine/Portfolio_-40~p/This_is_fine.png"
   },
   {
     "id": "2",
-    "title": "Me explaining Web3 to my parents at Christmas dinner",
-    "imageUrl": "https://picsum.photos/seed/crypto-explain/600/380"
+    "title": "Me buying every dip. It keeps dipping.",
+    "imageUrl": "https://api.memegen.link/images/stonks/Me_buying_every_dip/Stonks.png"
   },
   {
     "id": "3",
-    "title": "Portfolio -40%. Totally fine. This is fine.",
-    "imageUrl": "https://picsum.photos/seed/crypto-fine/600/380"
+    "title": "Much HODL. Very diamond hands.",
+    "imageUrl": "https://api.memegen.link/images/doge/Much_HODL/Very_diamond_hands.png"
   },
   {
     "id": "4",
-    "title": "Diamond hands vs. paper hands every Sunday night",
-    "imageUrl": "https://picsum.photos/seed/crypto-hands/600/380"
+    "title": "Selling at a loss vs HODLing to zero.",
+    "imageUrl": "https://api.memegen.link/images/drake/Selling_at_a_loss/HODLing_to_zero.png"
   },
   {
     "id": "5",
-    "title": "Me at 3 AM refreshing CoinGecko for the 47th time",
-    "imageUrl": "https://picsum.photos/seed/crypto-3am/600/380"
+    "title": "Can't lose money if you never check the price.",
+    "imageUrl": "https://api.memegen.link/images/rollsafe/Can't_lose_money/If_you_never_check_the_price.png"
   },
   {
     "id": "6",
-    "title": "Number go up technology. Very advanced. Much innovation.",
-    "imageUrl": "https://picsum.photos/seed/crypto-number/600/380"
+    "title": "Altcoin rugs without warning. Surprised investors, every time.",
+    "imageUrl": "https://api.memegen.link/images/pikachu/Altcoin_rugs_without_warning/Surprised_investors_every_time.png"
   },
   {
     "id": "7",
-    "title": "Bought high, HODL'd through the bottom, sold the relief bounce",
-    "imageUrl": "https://picsum.photos/seed/crypto-hodl/600/380"
+    "title": "Me ignoring Bitcoin for a new shiny altcoin.",
+    "imageUrl": "https://api.memegen.link/images/distracted/Me/New_shiny_altcoin/My_Bitcoin.png"
   },
   {
     "id": "8",
-    "title": "Technical analysis said buy. It did not go up.",
-    "imageUrl": "https://picsum.photos/seed/crypto-ta/600/380"
+    "title": "DCA into BTC weekly. Change my mind.",
+    "imageUrl": "https://api.memegen.link/images/changemymind/DCA_into_BTC_weekly/Change_my_mind.png"
   },
   {
     "id": "9",
-    "title": "My portfolio vs. S&P 500 this year",
-    "imageUrl": "https://picsum.photos/seed/crypto-vs/600/380"
+    "title": "Not sure if bull run — or just a dead cat bounce.",
+    "imageUrl": "https://api.memegen.link/images/fry/Not_sure_if_bull_run/Or_dead_cat_bounce.png"
   },
   {
     "id": "10",
-    "title": "Just one more altcoin and then I'll diversify, I swear",
-    "imageUrl": "https://picsum.photos/seed/crypto-alt/600/380"
+    "title": "Brace yourselves. Crypto Twitter takes incoming.",
+    "imageUrl": "https://api.memegen.link/images/brace/Brace_yourselves/Crypto_Twitter_takes_incoming.png"
+  },
+  {
+    "id": "11",
+    "title": "Oh, you're a long-term investor? Name every coin you hold.",
+    "imageUrl": "https://api.memegen.link/images/wonka/Oh_you're_a_long-term_investor/Name_every_coin_you_hold.png"
+  },
+  {
+    "id": "12",
+    "title": "You get rekt! Everybody gets rekt!",
+    "imageUrl": "https://api.memegen.link/images/oprah/You_get_rekt/Everybody_gets_rekt.png"
+  },
+  {
+    "id": "13",
+    "title": "My crypto gains are taxable events. A tragedy.",
+    "imageUrl": "https://api.memegen.link/images/1stworldproblems/My_crypto_gains/Are_taxable_events.png"
+  },
+  {
+    "id": "14",
+    "title": "Two buttons: check portfolio / sleep peacefully.",
+    "imageUrl": "https://api.memegen.link/images/twobuttons/Check_portfolio/Sleep_peacefully.png"
+  },
+  {
+    "id": "15",
+    "title": "Wen Lambo? Wen Lambo everywhere.",
+    "imageUrl": "https://api.memegen.link/images/buzz/Wen_Lambo/Wen_Lambo_everywhere.png"
   }
 ]

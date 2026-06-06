@@ -45,6 +45,17 @@ const MIGRATIONS = [
   `CREATE INDEX IF NOT EXISTS idx_alerts_active   ON price_alerts(user_id) WHERE triggered = FALSE`,
   `CREATE INDEX IF NOT EXISTS idx_insight_history ON ai_insight_history(user_id, created_at DESC)`,
   `CREATE INDEX IF NOT EXISTS idx_users_reset_token ON users(reset_token) WHERE reset_token IS NOT NULL`,
+  // v4 → v5 (watchlist)
+  `CREATE TABLE IF NOT EXISTS watchlist (
+    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    coin_id     VARCHAR(100) NOT NULL,
+    coin_symbol VARCHAR(20)  NOT NULL,
+    coin_name   VARCHAR(100),
+    added_at    TIMESTAMPTZ  DEFAULT NOW(),
+    UNIQUE (user_id, coin_id)
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_watchlist_user ON watchlist(user_id)`,
 ];
 
 async function migrate() {

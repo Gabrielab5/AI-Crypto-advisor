@@ -19,10 +19,17 @@ export interface DashboardData {
   market_news:      NewsItem[];
   ai_insight:       AIInsight | null;
   meme:             Meme | null;
+  memes?:           Meme[];
   triggered_alerts: TriggeredAlert[];
   stale?:           boolean;
   fetched_at:       string;
 }
 
+export interface DashboardParams {
+  section?:       string;
+  bypass_cache?:  boolean;
+}
+
 export type { TriggeredAlert };
-export const getDashboard = () => api.get<DashboardData>('/api/dashboard');
+export const getDashboard = (params?: DashboardParams) =>
+  api.get<DashboardData>('/api/dashboard', { params });

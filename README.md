@@ -23,17 +23,20 @@
 ## ✨ Features
 
 - **Personalized onboarding** — 3-step wizard: assets, investor type, content preferences
-- **Live coin prices** — top 8 coins from CoinGecko, filtered to your interests
-- **Coin detail modal** — 7/30-day recharts price chart, ATH, supply, momentum score, news
-- **AI market insights** — OpenRouter (mistral-7b) with HuggingFace fallback, refreshable
-- **Curated news feed** — CryptoPanic API with static fallback, time-ago labels
-- **Meme card** — random crypto meme with "🔀 New Meme" shuffle button
-- **Vote system** — 👍/👎 per section, stored per user in PostgreSQL
+- **Live coin prices** — top 8 coins from CoinGecko, filtered to your interests; "Explore More" loads next 10
+- **Coin detail modal** — 7/30-day recharts price chart, ATH, supply, momentum score, news, per-coin voting
+- **AI market insights** — OpenRouter (mistral-7b) with HuggingFace fallback; "New Insight" bypasses cache for fresh content
+- **AI personalization** — learns from 👎 votes; disliked coins are excluded from future results and AI prompts
+- **Curated news feed** — CryptoPanic API with static fallback; every item has a "Read more →" source link
+- **Meme card** — 15 matched crypto memes (memegen.link), shuffles on every auto-refresh
+- **Smart vote system** — 👍/👎 per section and per-coin; first vote shows toast, switching updates, same vote toggles off silently
+- **Watchlist** — ⭐ star in Navbar opens a slide-in panel with live prices & 24h changes; star in coin modal to add/remove
 - **Dark / light theme** — CSS variable tokens, toggleable, persisted to DB and localStorage
 - **Auto-refresh** — live data every 60 seconds with "Updated Xs ago" indicator
 - **Offline resilience** — localStorage fallback with stale-data banner
+- **Cache warmup** — CoinGecko data pre-fetched on server startup; first user request is always instant
 - **Settings drawer** — password reset, theme toggle, preferences link
-- **Production-grade** — Helmet, rate limiting, parameterized queries, CORS
+- **Production-grade** — Helmet, rate limiting, parameterized queries, CORS, trust proxy
 
 ---
 
@@ -140,9 +143,18 @@ Base URL: `http://localhost:5000`
 ### Dashboard _(JWT required)_
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | `/api/dashboard` | All 4 sections (prices, news, AI, meme) personalized to user prefs |
+| GET | `/api/dashboard` | All 4 sections (prices, news, AI, meme + memes pool) personalized to user prefs |
+| GET | `/api/dashboard?section=ai_insight&bypass_cache=true` | Fresh AI insight, bypassing the 10-min cache |
 | GET | `/api/coins/:id` | Coin detail: ATH, supply, 7d/30d changes |
 | GET | `/api/coins/:id/chart?days=7` | Price history (7 or 30 days) |
+| GET | `/api/coins/market?page=2&per_page=10` | Paginated market data for "Explore More Coins" |
+
+### Watchlist _(JWT required)_
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/watchlist` | User's watchlist with live CoinGecko prices |
+| POST | `/api/watchlist` | Add coin `{ coin_id, coin_symbol, coin_name? }` |
+| DELETE | `/api/watchlist/:coin_id` | Remove a coin from watchlist |
 
 ### Preferences, Votes, Users _(JWT required)_
 | Method | Endpoint | Description |
@@ -150,6 +162,8 @@ Base URL: `http://localhost:5000`
 | GET | `/api/preferences` | Current user preferences |
 | POST | `/api/preferences` | Save (upsert) all preferences |
 | GET/POST | `/api/votes` | Fetch or cast `{ section, item_id, vote: 'up'\|'down' }` |
+| DELETE | `/api/votes` | Remove a vote `{ section, item_id }` (toggle-off) |
+| GET | `/api/votes/summary` | Returns `{ liked: string[], disliked: string[] }` per-coin votes |
 | GET | `/api/users/me` | User profile + preferences |
 | PATCH | `/api/users/preferences` | Update individual preference fields |
 
@@ -215,9 +229,11 @@ Coverage: auth flows, preferences CRUD, vote validation, dashboard resilience, c
 
 ---
 
-## 💡 Feedback Model
+## 💡 AI Personalization & Feedback Loop
 
-Each dashboard section has 👍/👎 vote buttons. Votes are stored per-user in the `votes` table with `(user_id, section, item_id)` unique constraint — submitting the same vote again updates it (upsert). Future ML iterations can use aggregated vote data to personalize content ranking.
+Each dashboard section has 👍/👎 vote buttons. Votes are stored per-user in the `votes` table with `(user_id, section, item_id)` unique constraint. Clicking the same vote again removes it (toggle-off, no toast). Switching vote direction shows "Preference updated ✓".
+
+Per-coin votes cast inside the Coin Detail Modal drive the feedback loop: coins voted 👎 are excluded from the next dashboard build, and their IDs are appended to the AI insight prompt ("do not focus on X"). Coins voted 👍 are boosted in the preferred-assets ordering.
 
 ---
 

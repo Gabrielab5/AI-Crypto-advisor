@@ -11,6 +11,7 @@ const preferencesRoutes = require('./routes/preferences');
 const dashboardRoutes   = require('./routes/dashboard');
 const coinsRoutes       = require('./routes/coins');
 const alertsRoutes      = require('./routes/alerts');
+const watchlistRoutes   = require('./routes/watchlist');
 
 const app = express();
 
@@ -56,5 +57,6 @@ app.use('/api/preferences', preferencesRoutes);
 app.use('/api/dashboard',   dashboardRoutes);
 app.use('/api/coins',       coinsRoutes);
 app.use('/api/alerts',      alertsRoutes);
+app.use('/api/watchlist',   watchlistRoutes);
 
 module.exports = app;

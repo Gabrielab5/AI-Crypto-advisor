@@ -122,6 +122,17 @@ html.light {
 .animate-fade-in        { animation: fade-in        0.3s  ease-out both; }
 .animate-toast-in       { animation: toast-in       0.25s cubic-bezier(.22,1,.36,1) both; }
 
+@keyframes ticker {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@keyframes indeterminate {
+  0%   { transform: translateX(-100%) scaleX(0.4); }
+  100% { transform: translateX(250%)  scaleX(0.4); }
+}
+.animate-ticker        { animation: ticker        10s  linear     infinite; }
+.animate-indeterminate { animation: indeterminate 1.4s ease-in-out infinite; }
+
 /* ── Input focus ring ─────────────────────────────────────────────────────── */
 .input-field {
   background-color: var(--c-s2);

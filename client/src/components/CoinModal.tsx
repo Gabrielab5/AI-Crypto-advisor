@@ -32,15 +32,14 @@ function momentumScore(c24: number, c7: number, c30: number): number {
   const w = c24 * 0.5 + c7 * 0.3 + c30 * 0.2;
   return Math.round(Math.max(0, Math.min(100, w + 50)));
 }
-
 function scoreLabel(s: number) {
-  if (s >= 70) return { label: 'Bullish', color: 'var(--c-accent)' };
-  if (s >= 50) return { label: 'Slightly Bullish', color: '#86efac' };
-  if (s >= 35) return { label: 'Neutral', color: '#facc15' };
-  return { label: 'Bearish', color: '#f87171' };
+  if (s >= 70) return { label: 'Bullish',          color: 'var(--c-accent)' };
+  if (s >= 50) return { label: 'Slightly Bullish',  color: '#86efac' };
+  if (s >= 35) return { label: 'Neutral',           color: '#facc15' };
+  return             { label: 'Bearish',            color: '#f87171' };
 }
 
-// ─── Custom tooltip ───────────────────────────────────────────────────────
+// ─── Custom chart tooltip ──────────────────────────────────────────────────
 
 function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) {
   if (!active || !payload?.length) return null;
@@ -55,55 +54,59 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
 // ─── Props ────────────────────────────────────────────────────────────────
 
 interface CoinModalProps {
-  coin: CoinPrice;
-  news: NewsItem[];
-  onClose: () => void;
-  isPinned?: boolean;
-  onPin?: (coinId: string) => void;
+  coin:            CoinPrice;
+  news:            NewsItem[];
+  onClose:         () => void;
+  isPinned?:       boolean;
+  onPin?:          (coinId: string) => void;
+  coinVote?:       'up' | 'down' | null;
+  onCoinVote?:     (vote: 'up' | 'down') => void;
+  pendingCoinVote?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
 
-export default function CoinModal({ coin, news, onClose, isPinned = false, onPin }: CoinModalProps) {
-  const [detail,    setDetail]    = useState<CoinDetail | null>(null);
-  const [chart,     setChart]     = useState<ChartPoint[]>([]);
-  const [days,      setDays]      = useState<7 | 30>(7);
-  const [loadingD,  setLoadingD]  = useState(true);
-  const [loadingC,  setLoadingC]  = useState(true);
+export default function CoinModal({ coin, news, onClose, isPinned = false, onPin, coinVote, onCoinVote, pendingCoinVote }: CoinModalProps) {
+  const [detail,   setDetail]   = useState<CoinDetail | null>(null);
+  const [chart,    setChart]    = useState<ChartPoint[]>([]);
+  const [chartErr, setChartErr] = useState(false);
+  const [days,     setDays]     = useState<7 | 30>(7);
+  const [loadingD, setLoadingD] = useState(true);
+  const [loadingC, setLoadingC] = useState(true);
   const backdropRef = useRef<HTMLDivElement>(null);
 
-  // Close on Escape
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, [onClose]);
 
-  // Fetch detail once
   useEffect(() => {
     setLoadingD(true);
     getCoinDetail(coin.id)
       .then(r => setDetail(r.data))
-      .catch(() => {})
+      .catch(err => console.error('[CoinModal] detail fetch failed:', err))
       .finally(() => setLoadingD(false));
   }, [coin.id]);
 
-  // Fetch chart when days changes
   useEffect(() => {
     setLoadingC(true);
+    setChartErr(false);
     getCoinChart(coin.id, days)
       .then(r => setChart(r.data))
-      .catch(() => setChart([]))
+      .catch(err => {
+        console.error(`[CoinModal] chart fetch failed for ${coin.id} (${days}d):`, err);
+        setChart([]);
+        setChartErr(true);
+      })
       .finally(() => setLoadingC(false));
   }, [coin.id, days]);
 
-  // Derived
-  const c7   = detail?.change_7d  ?? 0;
-  const c30  = detail?.change_30d ?? 0;
+  const c7    = detail?.change_7d  ?? 0;
+  const c30   = detail?.change_30d ?? 0;
   const score = momentumScore(coin.change_24h, c7, c30);
   const { label: scoreText, color: scoreColor } = scoreLabel(score);
 
-  // Filter related news (title contains coin symbol or name)
   const relatedNews = news
     .filter(n => {
       const t = n.title.toLowerCase();
@@ -111,12 +114,10 @@ export default function CoinModal({ coin, news, onClose, isPinned = false, onPin
     })
     .slice(0, 3);
 
-  // Chart data formatted
   const chartData = chart.map(p => ({
     date:  new Date(p.ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     price: p.price,
   }));
-
   const minP = chartData.length ? Math.min(...chartData.map(d => d.price)) * 0.998 : 0;
   const maxP = chartData.length ? Math.max(...chartData.map(d => d.price)) * 1.002 : 0;
   const isUp = chartData.length >= 2 && chartData[chartData.length - 1].price >= chartData[0].price;
@@ -142,10 +143,11 @@ export default function CoinModal({ coin, news, onClose, isPinned = false, onPin
             {onPin && (
               <button
                 onClick={() => onPin(coin.id)}
-                title={isPinned ? 'Unpin from watchlist' : 'Pin to watchlist'}
-                className={`transition-colors ${isPinned ? 'text-yellow-400 hover:text-yellow-300' : 'text-[var(--c-muted)] hover:text-yellow-400'}`}
+                title={isPinned ? 'Remove from watchlist' : 'Add to watchlist'}
+                className={`flex items-center gap-1 text-xs transition-colors btn-base ${isPinned ? 'text-yellow-400 hover:text-yellow-300' : 'text-[var(--c-muted)] hover:text-yellow-400'}`}
               >
                 <Star className={`w-4 h-4 ${isPinned ? 'fill-yellow-400' : ''}`} />
+                <span className="hidden sm:inline">{isPinned ? 'In Watchlist' : 'Watchlist'}</span>
               </button>
             )}
             <a
@@ -166,15 +168,15 @@ export default function CoinModal({ coin, news, onClose, isPinned = false, onPin
 
           {/* Price + changes */}
           <div className="flex items-end justify-between flex-wrap gap-4">
-            <div>
-              <p className="text-[var(--c-text)] text-3xl font-bold font-mono">{fmtPrice(coin.price)}</p>
-            </div>
+            <p className="text-[var(--c-text)] text-3xl font-bold font-mono">{fmtPrice(coin.price)}</p>
             <div className="flex gap-4">
               {[['24h', coin.change_24h], ['7d', c7], ['30d', c30]].map(([label, val]) => (
                 <div key={label as string} className="text-right">
                   <p className="text-[var(--c-muted)] text-xs mb-0.5">{label as string}</p>
                   <p className={`font-semibold text-sm font-mono ${changeCls(val as number)}`}>
-                    {(val as number) >= 0 ? <TrendingUp className="inline w-3.5 h-3.5 mr-0.5" /> : <TrendingDown className="inline w-3.5 h-3.5 mr-0.5" />}
+                    {(val as number) >= 0
+                      ? <TrendingUp className="inline w-3.5 h-3.5 mr-0.5" />
+                      : <TrendingDown className="inline w-3.5 h-3.5 mr-0.5" />}
                     {changeStr(val as number)}
                   </p>
                 </div>
@@ -208,13 +210,16 @@ export default function CoinModal({ coin, news, onClose, isPinned = false, onPin
                   <LineChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--c-border)" vertical={false} />
                     <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--c-muted)' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                    <YAxis domain={[minP, maxP]} tick={{ fontSize: 10, fill: 'var(--c-muted)' }} tickLine={false} axisLine={false} tickFormatter={v => `$${(v/1000).toFixed(v>999?1:0)}${v>999?'k':''}`} />
+                    <YAxis domain={[minP, maxP]} tick={{ fontSize: 10, fill: 'var(--c-muted)' }} tickLine={false} axisLine={false}
+                      tickFormatter={v => `$${(v/1000).toFixed(v>999?1:0)}${v>999?'k':''}`} />
                     <Tooltip content={<ChartTooltip />} />
                     <Line type="monotone" dataKey="price" stroke={isUp ? 'var(--c-accent)' : '#f87171'} strokeWidth={2} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="flex items-center justify-center h-full text-[var(--c-muted)] text-sm">Chart unavailable</div>
+                <div className="flex items-center justify-center h-full text-[var(--c-muted)] text-sm">
+                  {chartErr ? 'Chart unavailable — try again later' : 'No chart data'}
+                </div>
               )}
             </div>
           </div>
@@ -227,10 +232,10 @@ export default function CoinModal({ coin, news, onClose, isPinned = false, onPin
           ) : detail && (
             <div className="grid grid-cols-2 gap-3">
               {[
-                ['Market Cap', fmtLarge(detail.market_cap)],
-                ['24h Volume', fmtLarge(detail.volume_24h)],
-                ['Circulating Supply', `${fmtSupply(detail.circulating_supply)} ${detail.symbol}`],
-                ['All-Time High', `${fmtPrice(detail.ath)}${detail.ath_date ? ` · ${new Date(detail.ath_date).getFullYear()}` : ''}`],
+                ['Market Cap',          fmtLarge(detail.market_cap)],
+                ['24h Volume',          fmtLarge(detail.volume_24h)],
+                ['Circulating Supply',  `${fmtSupply(detail.circulating_supply)} ${detail.symbol}`],
+                ['All-Time High',       `${fmtPrice(detail.ath)}${detail.ath_date ? ` · ${new Date(detail.ath_date).getFullYear()}` : ''}`],
               ].map(([label, val]) => (
                 <div key={label} className="bg-[var(--c-s2)] rounded-xl p-4">
                   <p className="text-[var(--c-muted)] text-xs mb-1">{label}</p>
@@ -247,10 +252,7 @@ export default function CoinModal({ coin, news, onClose, isPinned = false, onPin
               <span className="text-xs font-semibold" style={{ color: scoreColor }}>{scoreText}</span>
             </div>
             <div className="h-2.5 bg-[var(--c-border)] rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-700"
-                style={{ width: `${score}%`, backgroundColor: scoreColor }}
-              />
+              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${score}%`, backgroundColor: scoreColor }} />
             </div>
             <div className="flex justify-between mt-1.5">
               <span className="text-[var(--c-muted)] text-xs">Bearish</span>
@@ -259,6 +261,27 @@ export default function CoinModal({ coin, news, onClose, isPinned = false, onPin
             </div>
           </div>
 
+          {/* Per-coin feedback */}
+          {onCoinVote && (
+            <div className="bg-[var(--c-s2)] rounded-xl p-4 flex items-center justify-between">
+              <p className="text-[var(--c-text-2)] text-sm">Show this coin in my feed?</p>
+              <div className="flex gap-2">
+                {(['up', 'down'] as const).map(v => (
+                  <button key={v} onClick={() => onCoinVote(v)} disabled={pendingCoinVote}
+                    title={v === 'up' ? 'Yes, keep showing' : 'No, show less'}
+                    className={`w-8 h-8 rounded-lg text-base flex items-center justify-center transition-all disabled:opacity-40 hover:scale-110 active:scale-95
+                      ${coinVote === v
+                        ? v === 'up'
+                          ? 'bg-[var(--c-accent-bg)] text-[var(--c-accent)] border border-[var(--c-accent)]/30'
+                          : 'bg-[var(--c-red-bg)] text-red-400 border border-red-500/25'
+                        : 'bg-[var(--c-s3)] text-[var(--c-muted)] border border-[var(--c-border)] hover:text-[var(--c-text)]'}`}>
+                    {v === 'up' ? '👍' : '👎'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Related News */}
           <div>
             <p className="text-[var(--c-text)] text-sm font-semibold mb-3">Latest News</p>
@@ -266,10 +289,16 @@ export default function CoinModal({ coin, news, onClose, isPinned = false, onPin
               <ul className="space-y-2.5">
                 {relatedNews.map(item => (
                   <li key={item.id}>
-                    <a href={item.url !== '#' ? item.url : undefined} target={item.url !== '#' ? '_blank' : undefined} rel="noopener noreferrer"
+                    <a href={item.url !== '#' ? item.url : undefined}
+                      target={item.url !== '#' ? '_blank' : undefined} rel="noopener noreferrer"
                       className={`group flex items-start gap-2 ${item.url !== '#' ? 'cursor-pointer' : ''}`}>
                       <div className="w-1.5 h-1.5 rounded-full bg-[var(--c-accent)] mt-1.5 shrink-0" />
-                      <p className="text-[var(--c-text-2)] text-xs leading-relaxed group-hover:text-[var(--c-text)] transition-colors line-clamp-2">{item.title}</p>
+                      <div className="min-w-0">
+                        <p className="text-[var(--c-text-2)] text-xs leading-relaxed group-hover:text-[var(--c-text)] transition-colors line-clamp-2">{item.title}</p>
+                        {item.url !== '#' && (
+                          <span className="text-[var(--c-accent)] text-xs mt-0.5 inline-block group-hover:underline">Read more →</span>
+                        )}
+                      </div>
                     </a>
                   </li>
                 ))}

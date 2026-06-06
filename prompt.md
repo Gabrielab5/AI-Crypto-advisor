@@ -1,6 +1,6 @@
 # Prompt Log
 
-Tracks AI prompts for non-obvious design decisions. Max 10 entries.
+Tracks AI prompts for non-obvious design decisions. Max 13 entries.
 
 | Date | File | Prompt summary | Why logged |
 |------|------|---------------|------------|
@@ -14,3 +14,6 @@ Tracks AI prompts for non-obvious design decisions. Max 10 entries.
 | 2026-06-04 | `server/src/app.js` | Rate limiter skipped when `NODE_ENV === 'test'` to prevent 429s in Jest test suite | Rate limiter counts per-IP; running 30+ auth tests in a single Jest process on loopback exhausts the window |
 | 2026-06-04 | `client/src/components/CoinModal.tsx` | Momentum score = `c24h×0.5 + c7d×0.3 + c30d×0.2` clamped to [−50,+50] then normalized to 0–100 | Weighted average gives recent price action more influence; normalization maps natural percentage swings to the 0–100 sentiment scale |
 | 2026-06-04 | `client/tsconfig.app.json` | Exclude `src/__tests__` and `src/test` from the app tsconfig; add separate `tsconfig.test.json` with `vitest/globals` | Vitest globals (`test`, `expect`, `vi`) are not in scope for the production build; separate configs prevent spurious TS errors in `npm run build` |
+| 2026-06-06 | `server/db/schema.sql`, `server/src/routes/watchlist.js` | New `watchlist` table (user_id, coin_id, symbol, name, UNIQUE) instead of `pinned_coins TEXT[]` column on users | Separate table allows per-row metadata, price enrichment at read time, and clean DELETE by coin_id; array column would require parsing and prevents partial updates |
+| 2026-06-06 | `server/src/routes/dashboard.js`, `server/src/routes/votes.js` | Per-coin 👎 votes use `section='coin_prices'` + `item_id=coin.id`; dashboard reads these to filter coin list and append disliked IDs to AI prompt; `item_id != 'main'` distinguishes per-coin from section-level votes | Reusing the existing votes table avoids a new schema entity; the `item_id='main'` convention for section-level votes was already established |
+| 2026-06-06 | `client/src/pages/Dashboard.tsx` | Vote UX: compare current vote state before API call — same vote → `deleteVote` + no toast; first vote → "Preference saved ✓"; different vote → "Preference updated ✓" | Three distinct states require three branches; suppressing the toast on toggle-off avoids confusing "saved" message when the user is actually removing a preference |
