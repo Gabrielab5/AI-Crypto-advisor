@@ -15,7 +15,8 @@ function getCached(key) {
 }
 function setCached(key, data) { _live.set(key, { data, at: Date.now() }); _stale.set(key, data); }
 function getStale(key) { return _stale.get(key) ?? null; }
-function bustCache(key) { _live.delete(key); }
+function bustCache(key)     { _live.delete(key); }
+function bustCacheFull(key) { _live.delete(key); _stale.delete(key); }
 
 // ─── Asset → CoinGecko id ─────────────────────────────────────────────────
 const COIN_ID = {
@@ -80,6 +81,12 @@ const FALLBACK_NEWS = [
     url:'https://www.theblock.co',       source:'The Block',      published_at: new Date().toISOString() },
   { id:'fn5', title:'Regulatory clarity drives renewed interest from asset managers globally',
     url:'https://blockworks.co',         source:'Blockworks',     published_at: new Date().toISOString() },
+  { id:'fn6', title:'Bitcoin ETF net inflows hit record weekly high as institutional adoption accelerates',
+    url:'https://www.coindesk.com',      source:'CoinDesk',       published_at: new Date().toISOString() },
+  { id:'fn7', title:'DeFi protocol revenues outpace traditional fintech for third consecutive quarter',
+    url:'https://thedefiant.io',         source:'The Defiant',    published_at: new Date().toISOString() },
+  { id:'fn8', title:'Crypto market correlations with equities decline as asset class matures',
+    url:'https://blockworks.co',         source:'Blockworks',     published_at: new Date().toISOString() },
 ];
 
 async function fetchMarketNews(prefs) {
@@ -89,12 +96,12 @@ async function fetchMarketNews(prefs) {
   try {
     const assets = (prefs.interested_assets||[]).filter(a=>['BTC','ETH','SOL','BNB','XRP'].includes(a)).join(',');
     const res = await fetch(
-      `https://cryptopanic.com/api/v1/posts/?auth_token=${process.env.CRYPTOPANIC_API_KEY}&public=true${assets?`&currencies=${assets}`:''}`,
+      `https://cryptopanic.com/api/v1/posts/?auth_token=${process.env.CRYPTOPANIC_API_KEY}&public=true&per_page=8${assets?`&currencies=${assets}`:''}`,
       { signal: AbortSignal.timeout(6000) }
     );
     if (!res.ok) { const s=getStale('cryptopanic'); return s?{data:s,stale:true}:{data:FALLBACK_NEWS,stale:false}; }
     const json = await res.json();
-    const news = (json.results||[]).slice(0,5).map(item => ({
+    const news = (json.results||[]).slice(0,8).map(item => ({
       id: String(item.id), title: item.title, url: item.url,
       source: item.source?.title ?? 'CryptoPanic', published_at: item.published_at,
     }));
@@ -106,12 +113,22 @@ async function fetchMarketNews(prefs) {
   }
 }
 
-// ─── AI Insight — OpenRouter → HuggingFace → static ──────────────────────
+// ─── AI Insight — OpenRouter → HuggingFace → Gemini → static ────────────
+const LOG = process.env.NODE_ENV !== 'test';
+
 const STATIC_INSIGHT = {
   text: 'The crypto market rewards patience and consistent research over reactive trading. Layer 2 solutions and DeFi protocols are reshaping how value moves on-chain. Focus on fundamentals, manage your risk, and avoid letting short-term volatility override your long-term strategy.',
   model: 'static',
   generated_at: new Date().toISOString(),
 };
+
+// Race a provider call against a 10s deadline; returns null on timeout or error
+function withTimeout(ms, fn) {
+  return Promise.race([
+    Promise.resolve().then(fn),
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`AI provider timeout after ${ms}ms`)), ms)),
+  ]).catch(err => { console.error('[AI timeout/error]:', err.message); return null; });
+}
 
 async function callOpenRouter(prompt) {
   const models = ['mistralai/mistral-7b-instruct:free','meta-llama/llama-3.1-8b-instruct:free','google/gemma-3-1b-it:free'];
@@ -122,7 +139,7 @@ async function callOpenRouter(prompt) {
         headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${process.env.OPENROUTER_API_KEY}`,
                    'HTTP-Referer': process.env.CLIENT_URL||'http://localhost:5173', 'X-Title':'AI Crypto Advisor' },
         body: JSON.stringify({ model, messages:[{role:'user',content:prompt}], max_tokens:200, temperature:0.75 }),
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(9000),
       });
       const json = await res.json();
       if (!res.ok) { console.error(`[OpenRouter] ${model} HTTP ${res.status}:`, JSON.stringify(json)); continue; }
@@ -142,13 +159,36 @@ async function callHuggingFace(prompt) {
       method: 'POST',
       headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${process.env.HUGGINGFACE_API_KEY}` },
       body: JSON.stringify({ inputs:`<s>[INST] ${prompt} [/INST]`, parameters:{ max_new_tokens:200, return_full_text:false, temperature:0.75 } }),
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(9000),
     });
     const json = await res.json();
     if (!res.ok) { console.error('[HuggingFace]:', JSON.stringify(json)); return null; }
     const text = Array.isArray(json) ? json[0]?.generated_text?.trim() : json?.generated_text?.trim();
     return text ? { text, model:'huggingface/mistral-7b-instruct-v0.2' } : null;
   } catch (err) { console.error('[HuggingFace]:', err.message); return null; }
+}
+
+async function callGemini(prompt) {
+  if (!process.env.GEMINI_API_KEY) return null;
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: 200, temperature: 0.75 },
+        }),
+        signal: AbortSignal.timeout(14_000),
+      }
+    );
+    const json = await res.json();
+    if (!res.ok) { console.error('[Gemini] HTTP error:', JSON.stringify(json)); return null; }
+    const text = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if (!text) { console.error('[Gemini] empty response:', JSON.stringify(json)); return null; }
+    return { text, model: 'gemini-1.5-flash' };
+  } catch (err) { console.error('[Gemini] threw:', err.message); return null; }
 }
 
 async function fetchAIInsight(prefs, userId, dislikedCoinIds = []) {
@@ -178,9 +218,27 @@ async function fetchAIInsight(prefs, userId, dislikedCoinIds = []) {
 
   const prompt = `Give a short 3-sentence crypto market insight for a ${investorType} investor interested in ${assets}. Today is ${today}. Be concise, specific, and actionable. Do not use bullet points or headers.${dislikedStr}${memoryContext}`;
 
+  // Priority: Gemini → OpenRouter → HuggingFace → static fallback (15s each)
   let result = null;
-  if (process.env.OPENROUTER_API_KEY) result = await callOpenRouter(prompt);
-  if (!result) result = await callHuggingFace(prompt);
+  if (process.env.GEMINI_API_KEY) {
+    const t = Date.now();
+    if (LOG) console.log('[AI] Trying Gemini...');
+    result = await withTimeout(15_000, () => callGemini(prompt));
+    if (LOG) console.log(`[AI] Gemini → ${result ? 'SUCCESS' : 'FAILED'} (${Date.now() - t}ms)`);
+  }
+  if (!result && process.env.OPENROUTER_API_KEY) {
+    const t = Date.now();
+    if (LOG) console.log('[AI] Trying OpenRouter...');
+    result = await withTimeout(15_000, () => callOpenRouter(prompt));
+    if (LOG) console.log(`[AI] OpenRouter → ${result ? 'SUCCESS' : 'FAILED'} (${Date.now() - t}ms)`);
+  }
+  if (!result) {
+    const t = Date.now();
+    if (LOG) console.log('[AI] Trying HuggingFace...');
+    result = await withTimeout(15_000, () => callHuggingFace(prompt));
+    if (LOG) console.log(`[AI] HuggingFace → ${result ? 'SUCCESS' : 'FAILED'} (${Date.now() - t}ms)`);
+  }
+  if (!result && LOG) console.log('[AI] All providers failed — using static fallback');
 
   if (!result) {
     const stale = getStale(cacheKey);
@@ -238,6 +296,30 @@ async function warmCache() {
   const prefs = { interested_assets: [], investor_type: 'hodler', content_types: [] };
   await fetchCoinPrices(prefs, []);
 }
+
+// ─── GET /api/dashboard/insight — dedicated fresh AI insight endpoint ────
+router.get('/insight', requireAuth, async (req, res) => {
+  const userId = req.user.id;
+  bustCacheFull(`ai_insight_${userId}`);
+
+  let prefs = { interested_assets:[], investor_type:'hodler', content_types:[] };
+  try {
+    const { rows } = await pool.query('SELECT * FROM user_preferences WHERE user_id = $1', [userId]);
+    if (rows[0]) prefs = rows[0];
+  } catch {}
+
+  let dislikedCoinIds = [];
+  try {
+    const { rows } = await pool.query(
+      "SELECT item_id FROM votes WHERE user_id=$1 AND section='coin_prices' AND vote=-1 AND item_id!='main'",
+      [userId]
+    );
+    dislikedCoinIds = rows.map(r => r.item_id).filter(Boolean);
+  } catch {}
+
+  const { data: insight } = await fetchAIInsight(prefs, userId, dislikedCoinIds);
+  res.json({ ai_insight: insight, fetched_at: new Date().toISOString() });
+});
 
 // ─── GET /api/dashboard ───────────────────────────────────────────────────
 router.get('/', requireAuth, async (req, res) => {
@@ -299,4 +381,5 @@ router.get('/', requireAuth, async (req, res) => {
 });
 
 module.exports = router;
-module.exports.warmCache = warmCache;
+module.exports.warmCache  = warmCache;
+module.exports.bustCache  = bustCache;

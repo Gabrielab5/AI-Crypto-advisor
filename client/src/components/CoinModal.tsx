@@ -67,10 +67,11 @@ interface CoinModalProps {
 // ─── Component ────────────────────────────────────────────────────────────
 
 export default function CoinModal({ coin, news, onClose, isPinned = false, onPin, coinVote, onCoinVote, pendingCoinVote }: CoinModalProps) {
-  const [detail,   setDetail]   = useState<CoinDetail | null>(null);
-  const [chart,    setChart]    = useState<ChartPoint[]>([]);
-  const [chartErr, setChartErr] = useState(false);
-  const [days,     setDays]     = useState<7 | 30>(7);
+  const [detail,        setDetail]        = useState<CoinDetail | null>(null);
+  const [chart,         setChart]         = useState<ChartPoint[]>([]);
+  const [chartErr,      setChartErr]      = useState(false);
+  const [chartSynthetic, setChartSynthetic] = useState(false);
+  const [days,          setDays]          = useState<7 | 30>(7);
   const [loadingD, setLoadingD] = useState(true);
   const [loadingC, setLoadingC] = useState(true);
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -92,8 +93,12 @@ export default function CoinModal({ coin, news, onClose, isPinned = false, onPin
   useEffect(() => {
     setLoadingC(true);
     setChartErr(false);
+    setChartSynthetic(false);
     getCoinChart(coin.id, days)
-      .then(r => setChart(r.data))
+      .then(r => {
+        setChart(r.data);
+        setChartSynthetic(r.headers?.['x-synthetic-data'] === 'true');
+      })
       .catch(err => {
         console.error(`[CoinModal] chart fetch failed for ${coin.id} (${days}d):`, err);
         setChart([]);
@@ -125,10 +130,10 @@ export default function CoinModal({ coin, news, onClose, isPinned = false, onPin
   return (
     <div
       ref={backdropRef}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm"
       onClick={e => { if (e.target === backdropRef.current) onClose(); }}
     >
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-[var(--c-surface)] border border-[var(--c-border)] rounded-2xl shadow-2xl animate-modal-in">
+      <div className="w-full max-w-2xl max-h-[95dvh] sm:max-h-[90vh] overflow-y-auto bg-[var(--c-surface)] border border-[var(--c-border)] rounded-2xl shadow-2xl animate-modal-in">
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--c-border)] sticky top-0 bg-[var(--c-surface)] z-10">
@@ -197,7 +202,7 @@ export default function CoinModal({ coin, news, onClose, isPinned = false, onPin
                 ))}
               </div>
             </div>
-            <div className="h-44 relative">
+            <div style={{ position: 'relative', width: '100%', height: 220, minHeight: 220 }}>
               {loadingC ? (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <svg className="animate-spin w-5 h-5 text-[var(--c-muted)]" viewBox="0 0 24 24" fill="none">
@@ -206,7 +211,7 @@ export default function CoinModal({ coin, news, onClose, isPinned = false, onPin
                   </svg>
                 </div>
               ) : chartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height={220}>
                   <LineChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--c-border)" vertical={false} />
                     <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--c-muted)' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
@@ -222,6 +227,11 @@ export default function CoinModal({ coin, news, onClose, isPinned = false, onPin
                 </div>
               )}
             </div>
+            {chartSynthetic && (
+              <p className="text-[var(--c-muted)] text-xs text-center mt-1.5 italic">
+                Estimated data — live chart temporarily unavailable
+              </p>
+            )}
           </div>
 
           {/* Stats grid */}
@@ -269,7 +279,7 @@ export default function CoinModal({ coin, news, onClose, isPinned = false, onPin
                 {(['up', 'down'] as const).map(v => (
                   <button key={v} onClick={() => onCoinVote(v)} disabled={pendingCoinVote}
                     title={v === 'up' ? 'Yes, keep showing' : 'No, show less'}
-                    className={`w-8 h-8 rounded-lg text-base flex items-center justify-center transition-all disabled:opacity-40 hover:scale-110 active:scale-95
+                    className={`min-w-[44px] min-h-[44px] rounded-lg text-base flex items-center justify-center transition-all disabled:opacity-40 hover:scale-110 active:scale-95
                       ${coinVote === v
                         ? v === 'up'
                           ? 'bg-[var(--c-accent-bg)] text-[var(--c-accent)] border border-[var(--c-accent)]/30'

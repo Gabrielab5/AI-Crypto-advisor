@@ -33,3 +33,6 @@ export interface DashboardParams {
 export type { TriggeredAlert };
 export const getDashboard = (params?: DashboardParams) =>
   api.get<DashboardData>('/api/dashboard', { params });
+
+export const getInsight = () =>
+  api.get<{ ai_insight: AIInsight; fetched_at: string }>('/api/dashboard/insight');

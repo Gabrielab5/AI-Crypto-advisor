@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, LogOut, Bell, Star, X } from 'lucide-react';
+import { Menu, LogOut, Star } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
-  getDashboard,
+  getDashboard, getInsight,
   type CoinPrice, type NewsItem, type AIInsight, type Meme,
-  type DashboardData, type TriggeredAlert,
+  type DashboardData,
 } from '../api/dashboard';
 import { getPreferences } from '../api/preferences';
 import { castVote, deleteVote, getVotes, type VoteRecord } from '../api/votes';
-import { deleteAlert } from '../api/alerts';
 import { getWatchlist, addToWatchlist, removeFromWatchlist, type WatchlistItem } from '../api/watchlist';
 import { getMarketCoins } from '../api/coins';
 import Drawer         from '../components/Drawer';
@@ -98,7 +97,7 @@ function VoteButtons({ section, itemId, current, pending, onVote }: VoteBtnProps
     <div className="flex items-center gap-1 shrink-0">
       {(['up','down'] as const).map(v => (
         <button key={v} onClick={() => handle(v)} disabled={pending} title={v==='up'?'Helpful':'Not helpful'}
-          className={`w-8 h-8 rounded-lg text-base flex items-center justify-center transition-all duration-150 disabled:opacity-40 hover:scale-110 active:scale-95
+          className={`min-w-[44px] min-h-[44px] rounded-lg text-base flex items-center justify-center transition-all duration-150 disabled:opacity-40 hover:scale-110 active:scale-95
             ${bouncing===v?'animate-vote-bounce':''}
             ${current===v
               ? v==='up'?'bg-[var(--c-accent-bg)] text-[var(--c-accent)] border border-[var(--c-accent)]/30 shadow-[0_0_8px_rgba(0,255,136,0.2)]'
@@ -176,7 +175,7 @@ function CoinPricesCard({ coins, onCoinClick, watchlistIds, extraCoins, showExtr
       </table>
 
       <div className="mt-3 flex flex-col items-center gap-1">
-        <p className="text-[var(--c-muted)] text-xs">Click a row for details &amp; alerts</p>
+        <p className="text-[var(--c-muted)] text-xs">Click a row for more details</p>
         {showExtra ? (
           <button onClick={onCollapse}
             className="text-[var(--c-accent)] text-xs hover:underline btn-base">
@@ -272,10 +271,10 @@ function AIInsightCard({ insight, onRefresh, refreshing }: { insight: AIInsight;
 function MemeCard({ meme, allMemes, onNewMeme }: { meme: Meme; allMemes: Meme[]; onNewMeme:()=>void }) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-xl overflow-hidden bg-[var(--c-s2)] aspect-video">
+      <div className="rounded-xl overflow-hidden bg-[var(--c-s2)]">
         <img
           src={meme.imageUrl} alt={meme.title}
-          className="w-full h-full object-cover"
+          className="w-full h-auto block"
           loading="lazy"
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
         />
@@ -289,38 +288,6 @@ function MemeCard({ meme, allMemes, onNewMeme }: { meme: Meme; allMemes: Meme[];
   );
 }
 
-// ─── Alert dropdown ────────────────────────────────────────────────────────
-function AlertDropdown({ alerts, onDismiss, onClose }: { alerts: TriggeredAlert[]; onDismiss:(id:string)=>void; onClose:()=>void }) {
-  return (
-    <div className="absolute right-0 top-full mt-2 w-80 bg-[var(--c-surface)] border border-[var(--c-border)] rounded-xl shadow-2xl z-30 animate-modal-in">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--c-border)]">
-        <p className="text-[var(--c-text)] font-semibold text-sm">Price Alerts</p>
-        <button onClick={onClose} className="text-[var(--c-muted)] hover:text-[var(--c-text)] transition-colors"><X className="w-4 h-4" /></button>
-      </div>
-      {alerts.length === 0 ? (
-        <p className="px-4 py-8 text-[var(--c-muted)] text-sm text-center">No alerts triggered yet</p>
-      ) : (
-        <ul className="max-h-72 overflow-y-auto">
-          {alerts.map(alert => (
-            <li key={alert.id} className="px-4 py-3 border-b border-[var(--c-border)] last:border-0 flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[var(--c-text)] text-sm font-medium">
-                  {alert.coin_symbol} went <span className={alert.condition==='above'?'text-[var(--c-accent)]':'text-red-400'}>{alert.condition}</span> ${alert.target_price.toLocaleString()}
-                </p>
-                <p className="text-[var(--c-muted)] text-xs mt-0.5">
-                  Current: ${alert.current_price?.toLocaleString()} · {alert.triggered_at ? timeAgo(alert.triggered_at) : 'just now'}
-                </p>
-              </div>
-              <button onClick={() => onDismiss(alert.id)} className="text-[var(--c-muted)] hover:text-[var(--c-text)] transition-colors shrink-0 mt-0.5">
-                <X className="w-4 h-4" />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
 
 // ─── Main ──────────────────────────────────────────────────────────────────
 
@@ -346,13 +313,10 @@ export default function Dashboard() {
   const [watchlistItems,   setWatchlistItems]   = useState<WatchlistItem[]>([]);
   const [watchlistOpen,    setWatchlistOpen]    = useState(false);
   const [loadingWatchlist, setLoadingWatchlist] = useState(false);
-  const [triggeredAlerts,  setTriggeredAlerts]  = useState<TriggeredAlert[]>([]);
-  const [notifOpen,        setNotifOpen]        = useState(false);
   const [extraCoins,       setExtraCoins]       = useState<CoinPrice[]>([]);
   const [showExtra,        setShowExtra]        = useState(false);
   const [loadingExtra,     setLoadingExtra]     = useState(false);
 
-  const notifRef    = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval>|null>(null);
 
   useEffect(() => { document.title = 'Dashboard | AI Crypto Advisor'; }, []);
@@ -375,14 +339,6 @@ export default function Dashboard() {
     return () => clearInterval(t);
   }, [lastUpdated]);
 
-  // Close notif on outside click
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
-    }
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
 
   // ─── Toast ───────────────────────────────────────────────────────────────
   function addToast(message: string, type: ToastItem['type'] = 'success') {
@@ -409,18 +365,6 @@ export default function Dashboard() {
           const others = prev ? pool.filter(m => m.id !== prev.id) : pool;
           const pick   = others.length ? others : pool;
           return pick[Math.floor(Math.random() * pick.length)];
-        });
-      }
-
-      if (d.triggered_alerts?.length) {
-        setTriggeredAlerts(prev => {
-          const existingIds = new Set(prev.map(a => a.id));
-          const newAlerts   = d.triggered_alerts.filter(a => !existingIds.has(a.id));
-          if (newAlerts.length) {
-            setNotifOpen(true);
-            addToast(`🔔 ${newAlerts.length} price alert${newAlerts.length>1?'s':''} triggered!`, 'info');
-          }
-          return [...prev, ...newAlerts];
         });
       }
 
@@ -482,13 +426,25 @@ export default function Dashboard() {
   async function handleRefreshInsight() {
     if (refreshingAI) return;
     setRefreshingAI(true);
+
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), 20_000)
+    );
+
     try {
-      const dash = await getDashboard({ section: 'ai_insight', bypass_cache: true });
-      const fresh = (dash.data as DashboardData & { ai_insight: typeof data extends null ? never : NonNullable<typeof data>['ai_insight'] }).ai_insight;
-      setData(prev => prev ? { ...prev, ai_insight: fresh } : prev);
+      const { data: fresh } = await Promise.race([getInsight(), timeout]);
+      setData(prev => prev ? { ...prev, ai_insight: fresh.ai_insight } : prev);
       setLastUpdated(new Date());
-    } catch { addToast('Failed to refresh insight', 'error'); }
-    finally { setRefreshingAI(false); }
+    } catch (err) {
+      addToast(
+        err instanceof Error && err.message === 'timeout'
+          ? 'Could not fetch new insight — try again'
+          : 'Failed to refresh insight',
+        'error',
+      );
+    } finally {
+      setRefreshingAI(false);
+    }
   }
 
   async function handleWatchlistToggle(coinId: string) {
@@ -528,11 +484,6 @@ export default function Dashboard() {
       setWatchlistItems(items);
       setWatchlistIds(new Set(items.map(i => i.coin_id)));
     } finally { setLoadingWatchlist(false); }
-  }
-
-  async function handleDismissAlert(id: string) {
-    try { await deleteAlert(id); setTriggeredAlerts(prev => prev.filter(a => a.id !== id)); }
-    catch { addToast('Failed to dismiss alert', 'error'); }
   }
 
   function handleNewMeme() {
@@ -582,7 +533,7 @@ export default function Dashboard() {
       <ToastContainer toasts={toasts} />
 
       {/* Navbar */}
-      <nav className="sticky top-0 z-10 border-b border-[var(--c-border)] bg-[var(--c-surface)]/90 backdrop-blur-sm px-6 py-3.5 flex items-center justify-between">
+      <nav className="sticky top-0 z-10 border-b border-[var(--c-border)] bg-[var(--c-surface)]/90 backdrop-blur-sm px-3 sm:px-6 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-[var(--c-accent-bg)] border border-[var(--c-accent)]/20 flex items-center justify-center">
             <svg className="w-4 h-4 text-[var(--c-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -613,22 +564,6 @@ export default function Dashboard() {
               </span>
             )}
           </button>
-
-          {/* Bell — alerts */}
-          <div className="relative" ref={notifRef}>
-            <button onClick={() => setNotifOpen(o => !o)}
-              className="text-[var(--c-muted)] hover:text-[var(--c-text)] transition-colors opacity-80 hover:opacity-100 p-1 relative btn-base" aria-label="Alerts">
-              <Bell className="w-4 h-4" />
-              {triggeredAlerts.length > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                  {triggeredAlerts.length}
-                </span>
-              )}
-            </button>
-            {notifOpen && (
-              <AlertDropdown alerts={triggeredAlerts} onDismiss={handleDismissAlert} onClose={() => setNotifOpen(false)} />
-            )}
-          </div>
 
           <button onClick={() => { logout(); navigate('/login'); }}
             className="text-[var(--c-muted)] hover:text-[var(--c-text)] text-xs transition-colors opacity-80 hover:opacity-100 flex items-center gap-1.5 btn-base">
@@ -664,7 +599,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
           {/* Coin Prices */}
           <div className="bg-[var(--c-surface)] border border-[var(--c-border)] rounded-2xl p-6 flex flex-col card-hover animate-fade-in">
@@ -709,7 +644,7 @@ export default function Dashboard() {
         </div>
 
         <p className="text-[var(--c-muted)] text-xs text-center mt-10 opacity-60">
-          Prices via CoinGecko · AI via OpenRouter / HuggingFace · Auto-refreshes every 60s
+          Prices via CoinGecko · AI via Gemini / OpenRouter · Auto-refreshes every 60s
         </p>
       </main>
     </div>

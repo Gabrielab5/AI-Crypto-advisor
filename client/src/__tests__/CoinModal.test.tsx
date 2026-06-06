@@ -90,7 +90,6 @@ test('logs console.error when chart fetch fails', async () => {
   await waitFor(() => expect(consoleSpy).toHaveBeenCalledWith(
     expect.stringContaining('[CoinModal] chart fetch failed'),
     expect.anything(),
-    expect.anything(),
   ));
   consoleSpy.mockRestore();
 });

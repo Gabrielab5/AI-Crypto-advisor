@@ -1,12 +1,14 @@
-process.env.JWT_SECRET        = 'test-secret';
-process.env.NODE_ENV          = 'test';
-process.env.OPENROUTER_API_KEY = '';
+process.env.JWT_SECRET          = 'test-secret';
+process.env.NODE_ENV            = 'test';
+process.env.GEMINI_API_KEY      = '';
+process.env.OPENROUTER_API_KEY  = '';
 process.env.HUGGINGFACE_API_KEY = '';
 
-const request = require('supertest');
-const jwt     = require('jsonwebtoken');
-const app     = require('../src/app');
-const pool    = require('../src/db/pool');
+const request     = require('supertest');
+const jwt         = require('jsonwebtoken');
+const app         = require('../src/app');
+const pool        = require('../src/db/pool');
+const { bustCache } = require('../src/routes/dashboard');
 
 jest.mock('../src/db/pool', () => ({ query: jest.fn() }));
 
@@ -90,17 +92,28 @@ describe('GET /api/dashboard?section=ai_insight&bypass_cache=true', () => {
 });
 
 describe('Feedback loop — disliked coin exclusion', () => {
+  beforeEach(() => {
+    bustCache('coingecko');        // clear live cache so fresh fetch fires
+    global.fetch.mockReset();      // drop any unconsumed mocks from prior tests
+  });
+
   it('excludes disliked coins from coin_prices list', async () => {
-    // First query = user prefs, second = disliked votes, third = alerts
+    // Use 5 coins so the <4-fallback never re-adds bitcoin after exclusion
+    const manyCoins = [
+      { id:'bitcoin',  name:'Bitcoin',  symbol:'btc', image:'', current_price:60000, price_change_percentage_24h:2.5,  market_cap:1e12 },
+      { id:'ethereum', name:'Ethereum', symbol:'eth', image:'', current_price:3000,  price_change_percentage_24h:1.5,  market_cap:4e11 },
+      { id:'solana',   name:'Solana',   symbol:'sol', image:'', current_price:200,   price_change_percentage_24h:3.0,  market_cap:8e10 },
+      { id:'cardano',  name:'Cardano',  symbol:'ada', image:'', current_price:0.5,   price_change_percentage_24h:1.0,  market_cap:1.5e10 },
+      { id:'ripple',   name:'XRP',      symbol:'xrp', image:'', current_price:0.6,   price_change_percentage_24h:0.5,  market_cap:3e10 },
+    ];
     pool.query
       .mockResolvedValueOnce({ rows: [{ interested_assets:['BTC'], investor_type:'hodler', content_types:[] }] })
       .mockResolvedValueOnce({ rows: [{ item_id: 'bitcoin' }] }) // bitcoin disliked
-      .mockResolvedValueOnce({ rows: [] });                      // no history
-    global.fetch.mockResolvedValueOnce({ ok: true, json: async () => COIN_FIXTURE });
+      .mockResolvedValueOnce({ rows: [] });                      // no ai history
+    global.fetch.mockResolvedValueOnce({ ok: true, json: async () => manyCoins });
 
     const res = await request(app).get('/api/dashboard').set(AUTH);
     expect(res.status).toBe(200);
-    // Bitcoin should be excluded since it was disliked
     const ids = res.body.coin_prices.map(c => c.id);
     expect(ids).not.toContain('bitcoin');
   });
