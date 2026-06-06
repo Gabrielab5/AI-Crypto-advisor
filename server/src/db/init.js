@@ -3,12 +3,10 @@ const path = require('path');
 const { Pool } = require('pg');
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
-// Parse db name from DATABASE_URL so we can create it if missing
-const dbUrl = new URL(process.env.DATABASE_URL);
-const DB_NAME = dbUrl.pathname.slice(1); // strip leading "/"
-
 async function ensureDatabase() {
-  // Connect to the default "postgres" maintenance DB to issue CREATE DATABASE
+  const dbUrl = new URL(process.env.DATABASE_URL);
+  const DB_NAME = dbUrl.pathname.slice(1);
+
   const adminUrl = new URL(process.env.DATABASE_URL);
   adminUrl.pathname = '/postgres';
   const admin = new Pool({ connectionString: adminUrl.toString() });
@@ -37,15 +35,17 @@ async function applySchema() {
 }
 
 async function init() {
-  try {
-    await ensureDatabase();
-    await applySchema();
-  } catch (err) {
-    console.error('✗ Init failed:', err.message || err);
-    if (err.code) console.error('  Code:', err.code);
-    if (err.detail) console.error('  Detail:', err.detail);
-    process.exit(1);
-  }
+  await ensureDatabase();
+  await applySchema();
 }
 
-init();
+module.exports = { init };
+
+if (require.main === module) {
+  init().catch(err => {
+    console.error('✗ Init failed:', err.message || err);
+    if (err.code)   console.error('  Code:', err.code);
+    if (err.detail) console.error('  Detail:', err.detail);
+    process.exit(1);
+  });
+}

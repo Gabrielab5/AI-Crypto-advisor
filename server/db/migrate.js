@@ -4,12 +4,24 @@ require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const MIGRATIONS = [
   // v1 → v2
-  `ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token        TEXT`,
-  `ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expiry TIMESTAMPTZ`,
+  `DO $$ BEGIN
+    ALTER TABLE users ADD COLUMN reset_token TEXT;
+  EXCEPTION WHEN duplicate_column THEN NULL;
+  END $$`,
+  `DO $$ BEGIN
+    ALTER TABLE users ADD COLUMN reset_token_expiry TIMESTAMPTZ;
+  EXCEPTION WHEN duplicate_column THEN NULL;
+  END $$`,
   // v2 → v3
-  `ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS theme_preference VARCHAR(10) DEFAULT 'dark'`,
+  `DO $$ BEGIN
+    ALTER TABLE user_preferences ADD COLUMN theme_preference VARCHAR(10) DEFAULT 'dark';
+  EXCEPTION WHEN duplicate_column THEN NULL;
+  END $$`,
   // v3 → v4 (watchlist + alerts + AI memory)
-  `ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS pinned_coins TEXT[] DEFAULT '{}'`,
+  `DO $$ BEGIN
+    ALTER TABLE user_preferences ADD COLUMN pinned_coins TEXT[] DEFAULT '{}';
+  EXCEPTION WHEN duplicate_column THEN NULL;
+  END $$`,
   `CREATE TABLE IF NOT EXISTS price_alerts (
     id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -44,12 +56,16 @@ async function migrate() {
       console.log(`  ✓ ${sql.slice(0, 72).replace(/\s+/g, ' ')}…`);
     }
     console.log('✓ All migrations applied');
-  } catch (err) {
-    console.error('✗ Migration failed:', err.message);
-    process.exit(1);
   } finally {
     await pool.end();
   }
 }
 
-migrate();
+module.exports = { migrate };
+
+if (require.main === module) {
+  migrate().catch(err => {
+    console.error('✗ Migration failed:', err.message);
+    process.exit(1);
+  });
+}
