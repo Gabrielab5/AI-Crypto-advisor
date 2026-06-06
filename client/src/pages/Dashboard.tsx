@@ -354,7 +354,7 @@ export default function Dashboard() {
       const [dash, userVotes] = await Promise.all([getDashboard(), getVotes()]);
       const d = dash.data;
       setData(d);
-      setIsStale(false);
+      setIsStale(d.stale === true);
       setLastUpdated(new Date());
 
       // Refresh meme pool and pick a new random meme on every load
@@ -448,7 +448,8 @@ export default function Dashboard() {
   }
 
   async function handleWatchlistToggle(coinId: string) {
-    const coin = data?.coin_prices.find(c => c.id === coinId);
+    const coin = data?.coin_prices.find(c => c.id === coinId)
+      ?? extraCoins.find(c => c.id === coinId);
     if (!coin) return;
     const isIn = watchlistIds.has(coinId);
     if (isIn) {
@@ -612,16 +613,31 @@ export default function Dashboard() {
             </div>
             <div className="flex-1 min-h-0">
               {loading ? <CoinPricesLoadingCard /> : data && (
-                <CoinPricesCard
-                  coins={data.coin_prices}
-                  onCoinClick={setSelectedCoin}
-                  watchlistIds={watchlistIds}
-                  extraCoins={extraCoins}
-                  showExtra={showExtra}
-                  loadingExtra={loadingExtra}
-                  onLoadMore={handleLoadMore}
-                  onCollapse={() => { setShowExtra(false); setExtraCoins([]); }}
-                />
+                data.coins_unavailable && data.coin_prices.length === 0 ? (
+                  <div className="flex flex-col items-center gap-3 py-6 text-center">
+                    <p className="text-[var(--c-muted)] text-sm">
+                      Live prices temporarily unavailable
+                    </p>
+                    <p className="text-[var(--c-s3)] text-xs">
+                      CoinGecko may be rate-limiting — your data will reload shortly.
+                    </p>
+                    <button onClick={loadDashboard}
+                      className="text-xs text-[var(--c-accent)] hover:text-[var(--c-accent-2)] hover:underline transition-colors btn-base">
+                      Retry now →
+                    </button>
+                  </div>
+                ) : (
+                  <CoinPricesCard
+                    coins={data.coin_prices}
+                    onCoinClick={setSelectedCoin}
+                    watchlistIds={watchlistIds}
+                    extraCoins={extraCoins}
+                    showExtra={showExtra}
+                    loadingExtra={loadingExtra}
+                    onLoadMore={handleLoadMore}
+                    onCollapse={() => { setShowExtra(false); setExtraCoins([]); }}
+                  />
+                )
               )}
             </div>
           </div>
