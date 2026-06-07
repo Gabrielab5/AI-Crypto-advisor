@@ -15,14 +15,15 @@ export interface Meme {
   id: string; title: string; imageUrl: string;
 }
 export interface DashboardData {
-  coin_prices:      CoinPrice[];
-  market_news:      NewsItem[];
-  ai_insight:       AIInsight | null;
-  meme:             Meme | null;
-  memes?:           Meme[];
-  triggered_alerts: TriggeredAlert[];
-  stale?:           boolean;
-  fetched_at:       string;
+  coin_prices:       CoinPrice[];
+  coins_unavailable?: boolean;
+  market_news:       NewsItem[];
+  ai_insight:        AIInsight | null;
+  meme:              Meme | null;
+  memes?:            Meme[];
+  triggered_alerts:  TriggeredAlert[];
+  stale?:            boolean;
+  fetched_at:        string;
 }
 
 export interface DashboardParams {

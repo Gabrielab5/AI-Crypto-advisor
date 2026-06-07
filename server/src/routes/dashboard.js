@@ -31,10 +31,12 @@ async function fetchCoinPrices(prefs, dislikedIds = []) {
   const cached = getCached('coingecko');
   let all = cached;
   if (!all) {
+    const cgHeaders = { Accept: 'application/json' };
+    if (process.env.COINGECKO_API_KEY) cgHeaders['x-cg-demo-api-key'] = process.env.COINGECKO_API_KEY;
     const res = await fetch(
       'https://api.coingecko.com/api/v3/coins/markets' +
       '?vs_currency=usd&order=market_cap_desc&per_page=30&sparkline=false&price_change_percentage=24h',
-      { headers: { Accept:'application/json' }, signal: AbortSignal.timeout(8000) }
+      { headers: cgHeaders, signal: AbortSignal.timeout(8000) }
     );
     if (!res.ok) {
       const stale = getStale('coingecko');
@@ -369,14 +371,15 @@ router.get('/', requireAuth, async (req, res) => {
   const triggeredAlerts = await checkAlerts(userId, coinPrices);
 
   res.json({
-    coin_prices:      coinPrices,
-    market_news:      extract(newsResult,   FALLBACK_NEWS),
-    ai_insight:       extract(insightResult, { ...STATIC_INSIGHT, generated_at: new Date().toISOString() }),
-    meme:             memes[Math.floor(Math.random() * memes.length)],
-    memes:            memes,
-    triggered_alerts: triggeredAlerts,
-    stale:            staleFlags.length > 0,
-    fetched_at:       new Date().toISOString(),
+    coin_prices:       coinPrices,
+    coins_unavailable: pricesResult.status === 'rejected',
+    market_news:       extract(newsResult,   FALLBACK_NEWS),
+    ai_insight:        extract(insightResult, { ...STATIC_INSIGHT, generated_at: new Date().toISOString() }),
+    meme:              memes[Math.floor(Math.random() * memes.length)],
+    memes:             memes,
+    triggered_alerts:  triggeredAlerts,
+    stale:             staleFlags.length > 0,
+    fetched_at:        new Date().toISOString(),
   });
 });
 

@@ -28,11 +28,13 @@ function generateSyntheticChart(basePrice, days) {
 
 // Fetch from CoinGecko with up to 2 retries (1s, 2s) on 429
 async function cgFetch(url) {
+  const cgHeaders = { Accept: 'application/json' };
+  if (process.env.COINGECKO_API_KEY) cgHeaders['x-cg-demo-api-key'] = process.env.COINGECKO_API_KEY;
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt > 0) await new Promise(r => setTimeout(r, 1000 * attempt));
     try {
       const r = await fetch(url, {
-        headers: { Accept: 'application/json' },
+        headers: cgHeaders,
         signal: AbortSignal.timeout(8000),
       });
       if (r.status !== 429) return r;
