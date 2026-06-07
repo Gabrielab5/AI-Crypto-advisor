@@ -13,6 +13,7 @@ const dashboardRoutes   = require('./routes/dashboard');
 const coinsRoutes       = require('./routes/coins');
 const alertsRoutes      = require('./routes/alerts');
 const watchlistRoutes   = require('./routes/watchlist');
+const newsRoutes        = require('./routes/news');
 
 const app = express();
 
@@ -60,5 +61,6 @@ app.use('/api/dashboard',   dashboardRoutes);
 app.use('/api/coins',       requireAuth, coinsRoutes);
 app.use('/api/alerts',      alertsRoutes);
 app.use('/api/watchlist',   requireAuth, watchlistRoutes);
+app.use('/api/news',        newsRoutes);
 
 module.exports = app;

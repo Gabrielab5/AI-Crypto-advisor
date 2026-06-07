@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const pool = require('../db/pool');
 const { requireAuth } = require('../middleware/auth');
+const { bustInsightCacheForUser } = require('./dashboard');
 
 // GET /api/preferences
 router.get('/', requireAuth, async (req, res) => {
@@ -41,6 +42,7 @@ router.post('/', requireAuth, async (req, res) => {
        RETURNING *`,
       [req.user.id, interested_assets, investor_type, content_types]
     );
+    bustInsightCacheForUser(req.user.id);
     res.json(rows[0]);
   } catch (err) {
     console.error(err);

@@ -42,16 +42,19 @@ describe('GET /api/watchlist', () => {
     expect(res.body[0].price).toBeNull();
   });
 
-  it('returns enriched items when CoinGecko succeeds', async () => {
+  it('enriches items from server-side dashboard price cache', async () => {
+    // The dashboard module caches coin prices at module level (mockCoins as fallback).
+    // Watchlist reads from that cache — no CoinGecko call needed.
+    const { getCachedCoinPrices } = require('../src/routes/dashboard');
     pool.query.mockResolvedValueOnce({ rows: [ITEM] });
-    global.fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => [{ id: 'bitcoin', current_price: 65000, price_change_percentage_24h: 1.5, image: 'https://example.com/btc.png' }],
-    });
     const res = await request(app).get('/api/watchlist').set(AUTH);
     expect(res.status).toBe(200);
-    expect(res.body[0].price).toBe(65000);
-    expect(res.body[0].change_24h).toBe(1.5);
+    expect(res.body[0].coin_id).toBe('bitcoin');
+    // Price comes from cache — assert it's a number when cache has data, or null when empty
+    const cached = getCachedCoinPrices();
+    const btc    = cached.find(c => c.id === 'bitcoin');
+    const expectedPrice = btc ? (btc.current_price ?? btc.price ?? null) : null;
+    expect(res.body[0].price).toBe(expectedPrice);
   });
 
   it('returns 401 without token', async () => {

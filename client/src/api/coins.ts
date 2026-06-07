@@ -10,6 +10,10 @@ export interface CoinDetail {
 
 export interface ChartPoint { ts: number; price: number; }
 
+export interface CoinNewsItem {
+  title: string; url: string; source: string; published_at: string;
+}
+
 export const getCoinDetail = (id: string) =>
   api.get<CoinDetail>(`/api/coins/${id}`);
 
@@ -18,3 +22,6 @@ export const getCoinChart = (id: string, days: 7 | 30 = 7) =>
 
 export const getMarketCoins = (page = 2, perPage = 10) =>
   api.get<CoinPrice[]>('/api/coins/market', { params: { page, per_page: perPage } });
+
+export const getCoinNews = (symbol: string, name: string) =>
+  api.get<CoinNewsItem[]>(`/api/news/${symbol}`, { params: { name } });

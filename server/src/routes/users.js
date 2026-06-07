@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const pool   = require('../db/pool');
 const { requireAuth } = require('../middleware/auth');
+const { bustInsightCacheForUser } = require('./dashboard');
 
 // GET /api/users/me
 router.get('/me', requireAuth, async (req, res) => {
@@ -36,6 +37,8 @@ router.patch('/preferences', requireAuth, async (req, res) => {
        RETURNING *`,
       [req.user.id, interested_assets, investor_type, content_types, theme_preference ?? null]
     );
+    // Invalidate cached insight so next dashboard load generates one for new prefs
+    bustInsightCacheForUser(req.user.id);
     res.json(rows[0]);
   } catch (err) {
     console.error(err);

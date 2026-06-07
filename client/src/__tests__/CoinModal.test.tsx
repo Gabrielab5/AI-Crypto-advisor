@@ -5,11 +5,12 @@ import { MemoryRouter } from 'react-router-dom';
 import { AuthProvider } from '../context/AuthContext';
 import { ThemeProvider } from '../context/ThemeContext';
 import CoinModal from '../components/CoinModal';
-import type { CoinPrice, NewsItem } from '../api/dashboard';
+import type { CoinPrice } from '../api/dashboard';
 
 vi.mock('../api/coins', () => ({
   getCoinDetail: vi.fn(),
   getCoinChart:  vi.fn(),
+  getCoinNews:   vi.fn(),
 }));
 
 import * as coinsApi from '../api/coins';
@@ -20,11 +21,6 @@ const COIN: CoinPrice = {
   price: 60000, change_24h: 2.5, market_cap: 1e12,
 };
 
-const NEWS: NewsItem[] = [
-  { id: 'n1', title: 'Bitcoin hits ATH today',   url: 'https://coindesk.com', source: 'CoinDesk', published_at: new Date().toISOString() },
-  { id: 'n2', title: 'Ethereum surges on demand', url: 'https://cointelegraph.com', source: 'CoinTelegraph', published_at: new Date().toISOString() },
-];
-
 const DETAIL = {
   id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', image: 'https://example.com/btc.png',
   price: 60000, change_24h: 2.5, change_7d: 5, change_30d: 10,
@@ -32,10 +28,16 @@ const DETAIL = {
   ath: 73000, ath_date: '2024-03-14',
 };
 
+const MOCK_NEWS = [
+  { title: 'Bitcoin hits ATH today',  url: 'https://coindesk.com',      source: 'CoinDesk',      published_at: new Date().toISOString() },
+  { title: 'BTC surges after ETF news', url: 'https://cointelegraph.com', source: 'CoinTelegraph', published_at: new Date().toISOString() },
+];
+
 beforeEach(() => {
   vi.clearAllMocks();
   (coinsApi.getCoinDetail as ReturnType<typeof vi.fn>).mockResolvedValue({ data: DETAIL });
   (coinsApi.getCoinChart  as ReturnType<typeof vi.fn>).mockResolvedValue({ data: [{ ts: Date.now(), price: 60000 }] });
+  (coinsApi.getCoinNews   as ReturnType<typeof vi.fn>).mockResolvedValue({ data: MOCK_NEWS });
 });
 
 function Wrapper({ onClose = vi.fn(), coinVote = null, onCoinVote = vi.fn() }: {
@@ -45,10 +47,12 @@ function Wrapper({ onClose = vi.fn(), coinVote = null, onCoinVote = vi.fn() }: {
 }) {
   return (
     <ThemeProvider><AuthProvider><MemoryRouter>
-      <CoinModal coin={COIN} news={NEWS} onClose={onClose} coinVote={coinVote} onCoinVote={onCoinVote} />
+      <CoinModal coin={COIN} onClose={onClose} coinVote={coinVote} onCoinVote={onCoinVote} />
     </MemoryRouter></AuthProvider></ThemeProvider>
   );
 }
+
+// ─── Basic rendering ───────────────────────────────────────────────────────────
 
 test('renders coin name and symbol', () => {
   render(<Wrapper />);
@@ -61,7 +65,27 @@ test('renders current price', () => {
   expect(screen.getByText('$60,000.00')).toBeInTheDocument();
 });
 
-test('chart fetch called with correct coin id', async () => {
+test('renders 7d/30d chart toggle buttons', () => {
+  render(<Wrapper />);
+  expect(screen.getByRole('button', { name: '7d' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '30d' })).toBeInTheDocument();
+});
+
+test('shows momentum score bar after detail loads', async () => {
+  render(<Wrapper />);
+  await waitFor(() => expect(screen.getByText('Momentum Score')).toBeInTheDocument());
+});
+
+// ─── Coin detail ───────────────────────────────────────────────────────────────
+
+test('loads coin detail on mount', async () => {
+  render(<Wrapper />);
+  await waitFor(() => expect(coinsApi.getCoinDetail).toHaveBeenCalledWith('bitcoin'));
+});
+
+// ─── Chart ────────────────────────────────────────────────────────────────────
+
+test('chart fetch called with correct coin id and default 7d', async () => {
   render(<Wrapper />);
   await waitFor(() => expect(coinsApi.getCoinChart).toHaveBeenCalledWith('bitcoin', 7));
 });
@@ -94,26 +118,63 @@ test('logs console.error when chart fetch fails', async () => {
   consoleSpy.mockRestore();
 });
 
-test('shows related news filtered by coin name', async () => {
+// ─── Latest News (coin-specific, fetched via getCoinNews) ─────────────────────
+
+test('fetches coin-specific news on mount with symbol and name', async () => {
+  render(<Wrapper />);
+  await waitFor(() => expect(coinsApi.getCoinNews).toHaveBeenCalledWith('BTC', 'Bitcoin'));
+});
+
+test('renders all news items returned by getCoinNews', async () => {
   render(<Wrapper />);
   await waitFor(() => expect(screen.getByText('Bitcoin hits ATH today')).toBeInTheDocument());
-  expect(screen.queryByText('Ethereum surges on demand')).not.toBeInTheDocument();
+  expect(screen.getByText('BTC surges after ETF news')).toBeInTheDocument();
 });
 
-test('shows "No recent news" when no news matches', async () => {
-  const dogeCoin: CoinPrice = { ...COIN, id: 'dogecoin', name: 'Dogecoin', symbol: 'DOGE' };
-  render(
-    <ThemeProvider><AuthProvider><MemoryRouter>
-      <CoinModal coin={dogeCoin} news={NEWS} onClose={vi.fn()} />
-    </MemoryRouter></AuthProvider></ThemeProvider>
-  );
-  await waitFor(() => expect(screen.getByText(/no recent news for doge/i)).toBeInTheDocument());
-});
-
-test('news items show Read more link', async () => {
+test('each news item shows a "Read more →" link', async () => {
   render(<Wrapper />);
-  await waitFor(() => expect(screen.getByText('Read more →')).toBeInTheDocument());
+  await waitFor(() => {
+    const links = screen.getAllByText('Read more →');
+    expect(links.length).toBe(MOCK_NEWS.length);
+  });
 });
+
+test('news link has correct href and opens in new tab', async () => {
+  render(<Wrapper />);
+  await waitFor(() => screen.getByText('Bitcoin hits ATH today'));
+  const link = screen.getByText('Bitcoin hits ATH today').closest('a');
+  expect(link).toHaveAttribute('href', 'https://coindesk.com');
+  expect(link).toHaveAttribute('target', '_blank');
+  expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+});
+
+test('shows news source label for each item', async () => {
+  render(<Wrapper />);
+  await waitFor(() => expect(screen.getByText('CoinDesk')).toBeInTheDocument());
+  expect(screen.getByText('CoinTelegraph')).toBeInTheDocument();
+});
+
+test('shows animated skeleton while news is loading', () => {
+  (coinsApi.getCoinNews as ReturnType<typeof vi.fn>).mockReturnValue(new Promise(() => {}));
+  const { container } = render(<Wrapper />);
+  expect(container.querySelector('.animate-pulse')).toBeTruthy();
+});
+
+test('shows empty news section when getCoinNews returns empty array', async () => {
+  (coinsApi.getCoinNews as ReturnType<typeof vi.fn>).mockResolvedValue({ data: [] });
+  render(<Wrapper />);
+  await waitFor(() => expect(coinsApi.getCoinNews).toHaveBeenCalled());
+  expect(screen.queryByText('Read more →')).not.toBeInTheDocument();
+});
+
+test('shows empty news section when getCoinNews fails', async () => {
+  (coinsApi.getCoinNews as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('network'));
+  render(<Wrapper />);
+  await waitFor(() => expect(coinsApi.getCoinNews).toHaveBeenCalled());
+  expect(screen.queryByText('Read more →')).not.toBeInTheDocument();
+});
+
+// ─── Per-coin votes ────────────────────────────────────────────────────────────
 
 test('per-coin vote buttons are rendered when onCoinVote provided', async () => {
   render(<Wrapper onCoinVote={vi.fn()} />);
@@ -130,25 +191,19 @@ test('clicking per-coin down vote calls onCoinVote with "down"', async () => {
   expect(onCoinVote).toHaveBeenCalledWith('down');
 });
 
+test('clicking per-coin up vote calls onCoinVote with "up"', async () => {
+  const onCoinVote = vi.fn();
+  render(<Wrapper onCoinVote={onCoinVote} />);
+  await waitFor(() => screen.getByTitle('Yes, keep showing'));
+  await userEvent.click(screen.getByTitle('Yes, keep showing'));
+  expect(onCoinVote).toHaveBeenCalledWith('up');
+});
+
+// ─── Close / keyboard ──────────────────────────────────────────────────────────
+
 test('closes on Escape key', async () => {
   const onClose = vi.fn();
   render(<Wrapper onClose={onClose} />);
   await userEvent.keyboard('{Escape}');
   expect(onClose).toHaveBeenCalled();
-});
-
-test('loads coin detail on mount', async () => {
-  render(<Wrapper />);
-  await waitFor(() => expect(coinsApi.getCoinDetail).toHaveBeenCalledWith('bitcoin'));
-});
-
-test('renders 7d/30d chart toggle buttons', () => {
-  render(<Wrapper />);
-  expect(screen.getByRole('button', { name: '7d' })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '30d' })).toBeInTheDocument();
-});
-
-test('shows momentum score bar', async () => {
-  render(<Wrapper />);
-  await waitFor(() => expect(screen.getByText('Momentum Score')).toBeInTheDocument());
 });

@@ -26,14 +26,6 @@ export interface DashboardData {
   fetched_at:        string;
 }
 
-export interface DashboardParams {
-  section?:       string;
-  bypass_cache?:  boolean;
-}
-
 export type { TriggeredAlert };
-export const getDashboard = (params?: DashboardParams) =>
-  api.get<DashboardData>('/api/dashboard', { params });
-
-export const getInsight = () =>
-  api.get<{ ai_insight: AIInsight; fetched_at: string }>('/api/dashboard/insight');
+export const getDashboard = () =>
+  api.get<DashboardData>('/api/dashboard');

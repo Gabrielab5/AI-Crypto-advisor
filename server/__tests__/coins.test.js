@@ -91,12 +91,12 @@ describe('GET /api/coins/market', () => {
     );
   });
 
-  it('returns 503 with error message when CoinGecko is unavailable', async () => {
-    // Default mock is already { ok: false, status: 503 }, no override needed.
+  it('returns 200 with fallback data when CoinGecko is unavailable', async () => {
+    // Default mock is already { ok: false, status: 503 }; route now returns mock data instead of 503.
     const res = await request(app).get('/api/coins/market?page=14&per_page=2').set(AUTH);
 
-    expect(res.status).toBe(503);
-    expect(res.body.error).toMatch(/CoinGecko/i);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
   });
 
   it('returns 401 without auth token', async () => {

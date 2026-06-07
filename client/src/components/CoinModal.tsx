@@ -4,8 +4,8 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid,
 } from 'recharts';
-import { getCoinDetail, getCoinChart, type CoinDetail, type ChartPoint } from '../api/coins';
-import type { CoinPrice, NewsItem } from '../api/dashboard';
+import { getCoinDetail, getCoinChart, getCoinNews, type CoinDetail, type ChartPoint, type CoinNewsItem } from '../api/coins';
+import type { CoinPrice } from '../api/dashboard';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -54,26 +54,27 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
 // ─── Props ────────────────────────────────────────────────────────────────
 
 interface CoinModalProps {
-  coin:            CoinPrice;
-  news:            NewsItem[];
-  onClose:         () => void;
-  isPinned?:       boolean;
-  onPin?:          (coinId: string) => void;
-  coinVote?:       'up' | 'down' | null;
-  onCoinVote?:     (vote: 'up' | 'down') => void;
+  coin:             CoinPrice;
+  onClose:          () => void;
+  isPinned?:        boolean;
+  onPin?:           (coinId: string) => void;
+  coinVote?:        'up' | 'down' | null;
+  onCoinVote?:      (vote: 'up' | 'down') => void;
   pendingCoinVote?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
 
-export default function CoinModal({ coin, news, onClose, isPinned = false, onPin, coinVote, onCoinVote, pendingCoinVote }: CoinModalProps) {
-  const [detail,        setDetail]        = useState<CoinDetail | null>(null);
-  const [chart,         setChart]         = useState<ChartPoint[]>([]);
-  const [chartErr,      setChartErr]      = useState(false);
+export default function CoinModal({ coin, onClose, isPinned = false, onPin, coinVote, onCoinVote, pendingCoinVote }: CoinModalProps) {
+  const [detail,         setDetail]         = useState<CoinDetail | null>(null);
+  const [chart,          setChart]          = useState<ChartPoint[]>([]);
+  const [chartErr,       setChartErr]       = useState(false);
   const [chartSynthetic, setChartSynthetic] = useState(false);
-  const [days,          setDays]          = useState<7 | 30>(7);
-  const [loadingD, setLoadingD] = useState(true);
-  const [loadingC, setLoadingC] = useState(true);
+  const [days,           setDays]           = useState<7 | 30>(7);
+  const [loadingD,       setLoadingD]       = useState(true);
+  const [loadingC,       setLoadingC]       = useState(true);
+  const [coinNews,       setCoinNews]       = useState<CoinNewsItem[]>([]);
+  const [loadingN,       setLoadingN]       = useState(true);
   const backdropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -107,17 +108,19 @@ export default function CoinModal({ coin, news, onClose, isPinned = false, onPin
       .finally(() => setLoadingC(false));
   }, [coin.id, days]);
 
+  useEffect(() => {
+    setLoadingN(true);
+    getCoinNews(coin.symbol, coin.name)
+      .then(r => setCoinNews(r.data))
+      .catch(() => setCoinNews([]))
+      .finally(() => setLoadingN(false));
+  }, [coin.symbol, coin.name]);
+
   const c7    = detail?.change_7d  ?? 0;
   const c30   = detail?.change_30d ?? 0;
   const score = momentumScore(coin.change_24h, c7, c30);
   const { label: scoreText, color: scoreColor } = scoreLabel(score);
 
-  const relatedNews = news
-    .filter(n => {
-      const t = n.title.toLowerCase();
-      return t.includes(coin.symbol.toLowerCase()) || t.includes(coin.name.toLowerCase());
-    })
-    .slice(0, 3);
 
   const chartData = chart.map(p => ({
     date:  new Date(p.ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
@@ -292,29 +295,43 @@ export default function CoinModal({ coin, news, onClose, isPinned = false, onPin
             </div>
           )}
 
-          {/* Related News */}
+          {/* Latest News — coin-specific */}
           <div>
             <p className="text-[var(--c-text)] text-sm font-semibold mb-3">Latest News</p>
-            {relatedNews.length > 0 ? (
-              <ul className="space-y-2.5">
-                {relatedNews.map(item => (
-                  <li key={item.id}>
-                    <a href={item.url !== '#' ? item.url : undefined}
-                      target={item.url !== '#' ? '_blank' : undefined} rel="noopener noreferrer"
-                      className={`group flex items-start gap-2 ${item.url !== '#' ? 'cursor-pointer' : ''}`}>
+            {loadingN ? (
+              <div className="space-y-3 animate-pulse">
+                {[1, 2].map(i => (
+                  <div key={i} className="flex items-start gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--c-s2)] mt-1.5 shrink-0" />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-2.5 bg-[var(--c-s2)] rounded w-full" />
+                      <div className="h-2.5 bg-[var(--c-s2)] rounded w-3/4" />
+                      <div className="h-2 bg-[var(--c-s2)] rounded w-1/3 mt-1" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <ul className="space-y-3">
+                {coinNews.map((item, i) => (
+                  <li key={i}>
+                    <a href={item.url} target="_blank" rel="noopener noreferrer"
+                      className="group flex items-start gap-2 cursor-pointer">
                       <div className="w-1.5 h-1.5 rounded-full bg-[var(--c-accent)] mt-1.5 shrink-0" />
                       <div className="min-w-0">
-                        <p className="text-[var(--c-text-2)] text-xs leading-relaxed group-hover:text-[var(--c-text)] transition-colors line-clamp-2">{item.title}</p>
-                        {item.url !== '#' && (
-                          <span className="text-[var(--c-accent)] text-xs mt-0.5 inline-block group-hover:underline">Read more →</span>
-                        )}
+                        <p className="text-[var(--c-text-2)] text-xs leading-relaxed group-hover:text-[var(--c-text)] transition-colors line-clamp-2">
+                          {item.title}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[var(--c-muted)] text-xs">{item.source}</span>
+                          <span className="text-[var(--c-s3)] text-xs">·</span>
+                          <span className="text-[var(--c-accent)] text-xs group-hover:underline">Read more →</span>
+                        </div>
                       </div>
                     </a>
                   </li>
                 ))}
               </ul>
-            ) : (
-              <p className="text-[var(--c-muted)] text-xs">No recent news for {coin.symbol}.</p>
             )}
           </div>
 

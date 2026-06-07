@@ -44,6 +44,7 @@ const DASH_DATA = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.removeItem('dashboard_cache'); // each test starts with no pre-existing cache
   localStorage.setItem('token', 'valid-token');
   localStorage.setItem('user', JSON.stringify({ id:'1', name:'Alice', email:'a@b.com' }));
   (prefsApi.getPreferences as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -173,11 +174,32 @@ test('Show Less collapses extra coins', async () => {
   expect(screen.queryByText('ETH')).not.toBeInTheDocument();
 });
 
-// ─── Stale + offline ──────────────────────────────────────────────────────
+// ─── Offline fallback (no banner) ─────────────────────────────────────────
 
-test('shows stale banner when localStorage used', async () => {
+test('renders dashboard data from localStorage when API fails', async () => {
   (dashApi.getDashboard as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('offline'));
   localStorage.setItem('dashboard_cache', JSON.stringify({ data: DASH_DATA, at: Date.now() }));
   render(<Wrapper />);
-  await waitFor(() => expect(screen.getByText(/showing cached data/i)).toBeInTheDocument());
+  // Data is rendered from cache — no offline banner is shown
+  await waitFor(() => expect(screen.getByText('BTC')).toBeInTheDocument());
+  expect(screen.queryByText(/showing cached data/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/offline/i)).not.toBeInTheDocument();
+});
+
+// ─── AI Insight card ──────────────────────────────────────────────────────
+
+test('AI Insight card shows "Personalized AI Insight" label', async () => {
+  render(<Wrapper />);
+  await waitFor(() => expect(screen.getByText('Personalized AI Insight')).toBeInTheDocument());
+});
+
+test('AI Insight card shows "Last updated" timestamp', async () => {
+  render(<Wrapper />);
+  await waitFor(() => expect(screen.getByText(/last updated/i)).toBeInTheDocument());
+});
+
+test('AI Insight card does NOT have a "New Insight" button', async () => {
+  render(<Wrapper />);
+  await waitFor(() => screen.getByText('Test insight'));
+  expect(screen.queryByRole('button', { name: /new insight/i })).not.toBeInTheDocument();
 });

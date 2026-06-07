@@ -3,6 +3,8 @@ const { Pool } = require('pg');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const MIGRATIONS = [
+  // ensure uuid-ossp extension exists before any uuid_generate_v4() usage
+  `CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`,
   // v1 → v2
   `DO $$ BEGIN
     ALTER TABLE users ADD COLUMN reset_token TEXT;

@@ -69,27 +69,7 @@ describe('GET /api/dashboard', () => {
   });
 });
 
-describe('GET /api/dashboard?section=ai_insight&bypass_cache=true', () => {
-  it('returns only ai_insight field', async () => {
-    global.fetch.mockResolvedValueOnce({ ok: true, json: async () => COIN_FIXTURE });
-
-    const res = await request(app)
-      .get('/api/dashboard?section=ai_insight&bypass_cache=true')
-      .set(AUTH);
-    expect(res.status).toBe(200);
-    expect(res.body).toHaveProperty('ai_insight');
-    expect(res.body).toHaveProperty('fetched_at');
-    expect(res.body).not.toHaveProperty('coin_prices');
-  });
-
-  it('returns fresh ai_insight on bypass (static fallback when no AI keys)', async () => {
-    const res = await request(app)
-      .get('/api/dashboard?section=ai_insight&bypass_cache=true')
-      .set(AUTH);
-    expect(res.status).toBe(200);
-    expect(typeof res.body.ai_insight.text).toBe('string');
-  });
-});
+// bypass_cache / section=ai_insight endpoint removed — insight now cached 24h per prefs hash
 
 describe('Feedback loop — disliked coin exclusion', () => {
   beforeEach(() => {

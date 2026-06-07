@@ -1,11 +1,13 @@
 import { X } from 'lucide-react';
 import type { WatchlistItem } from '../api/watchlist';
+import type { CoinPrice } from '../api/dashboard';
 
 interface WatchlistPanelProps {
-  items:    WatchlistItem[];
-  loading:  boolean;
-  onClose:  () => void;
-  onRemove: (coinId: string) => void;
+  items:        WatchlistItem[];
+  loading:      boolean;
+  onClose:      () => void;
+  onRemove:     (coinId: string) => void;
+  onCoinClick:  (coin: CoinPrice) => void;
 }
 
 function fmtPrice(n: number | null): string {
@@ -15,7 +17,19 @@ function fmtPrice(n: number | null): string {
     : n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumSignificantDigits: 4 });
 }
 
-export default function WatchlistPanel({ items, loading, onClose, onRemove }: WatchlistPanelProps) {
+function toCoinPrice(item: WatchlistItem): CoinPrice {
+  return {
+    id:         item.coin_id,
+    name:       item.coin_name ?? item.coin_symbol,
+    symbol:     item.coin_symbol,
+    image:      item.image ?? `https://ui-avatars.com/api/?name=${item.coin_symbol}&background=1a1a2e&color=00ff88&size=32`,
+    price:      item.price      ?? 0,
+    change_24h: item.change_24h ?? 0,
+    market_cap: 0,
+  };
+}
+
+export default function WatchlistPanel({ items, loading, onClose, onRemove, onCoinClick }: WatchlistPanelProps) {
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose} />
@@ -52,13 +66,16 @@ export default function WatchlistPanel({ items, loading, onClose, onRemove }: Wa
             <ul>
               {items.map(item => (
                 <li key={item.coin_id}
-                  className="flex items-center gap-3 px-5 py-3.5 border-b border-[var(--c-border)] last:border-0 hover:bg-[var(--c-s2)] transition-colors group">
+                  className="flex items-center gap-3 px-5 py-3.5 border-b border-[var(--c-border)] last:border-0 hover:bg-[var(--c-s2)] transition-colors group cursor-pointer"
+                  onClick={() => { onCoinClick(toCoinPrice(item)); onClose(); }}
+                >
                   {item.image
-                    ? <img src={item.image} alt={item.coin_symbol} className="w-8 h-8 rounded-full shrink-0" />
-                    : <div className="w-8 h-8 rounded-full bg-[var(--c-s2)] shrink-0" />}
+                    ? <img src={item.image} alt={item.coin_symbol} className="w-8 h-8 rounded-full shrink-0" onError={e => { (e.currentTarget as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${item.coin_symbol}&background=1a1a2e&color=00ff88&size=32`; }} />
+                    : <div className="w-8 h-8 rounded-full bg-[var(--c-accent-bg)] border border-[var(--c-accent)]/20 flex items-center justify-center text-[var(--c-accent)] text-xs font-bold shrink-0">{item.coin_symbol[0]}</div>
+                  }
 
                   <div className="flex-1 min-w-0">
-                    <p className="text-[var(--c-text)] text-sm font-medium">{item.coin_symbol}</p>
+                    <p className="text-[var(--c-text)] text-sm font-medium group-hover:text-[var(--c-accent)] transition-colors">{item.coin_symbol}</p>
                     <p className="text-[var(--c-muted)] text-xs truncate">{item.coin_name ?? '—'}</p>
                   </div>
 
@@ -72,7 +89,7 @@ export default function WatchlistPanel({ items, loading, onClose, onRemove }: Wa
                   </div>
 
                   <button
-                    onClick={() => onRemove(item.coin_id)}
+                    onClick={e => { e.stopPropagation(); onRemove(item.coin_id); }}
                     title="Remove from watchlist"
                     className="text-[var(--c-muted)] hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 shrink-0 p-0.5"
                   >

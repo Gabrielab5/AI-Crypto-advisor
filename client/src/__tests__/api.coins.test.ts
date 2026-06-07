@@ -7,7 +7,7 @@ vi.mock('../api/client', () => ({
 }));
 
 import api from '../api/client';
-import { getCoinDetail, getCoinChart, getMarketCoins } from '../api/coins';
+import { getCoinDetail, getCoinChart, getMarketCoins, getCoinNews } from '../api/coins';
 
 const mockedGet = vi.mocked(api.get);
 
@@ -55,5 +55,22 @@ describe('getMarketCoins', () => {
     expect(mockedGet).toHaveBeenCalledWith('/api/coins/market', {
       params: { page: 3, per_page: 5 },
     });
+  });
+});
+
+describe('getCoinNews', () => {
+  it('calls GET /api/news/:symbol with name query param', () => {
+    getCoinNews('BTC', 'Bitcoin');
+    expect(mockedGet).toHaveBeenCalledWith('/api/news/BTC', { params: { name: 'Bitcoin' } });
+  });
+
+  it('uses the provided symbol in the URL', () => {
+    getCoinNews('ETH', 'Ethereum');
+    expect(mockedGet).toHaveBeenCalledWith('/api/news/ETH', { params: { name: 'Ethereum' } });
+  });
+
+  it('passes the coin name as the name query param', () => {
+    getCoinNews('SOL', 'Solana');
+    expect(mockedGet).toHaveBeenCalledWith('/api/news/SOL', { params: { name: 'Solana' } });
   });
 });

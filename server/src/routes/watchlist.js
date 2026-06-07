@@ -1,8 +1,24 @@
 const router = require('express').Router();
 const pool   = require('../db/pool');
 const { requireAuth } = require('../middleware/auth');
+const { getCachedCoinPrices } = require('./dashboard');
 
-// GET /api/watchlist — user's watched coins with live prices
+// Build a price/image lookup from the already-cached CoinGecko data
+// Handles both raw CoinGecko shape (current_price) and mockCoins shape (price)
+function buildPriceMap() {
+  const coins = getCachedCoinPrices();
+  const map = {};
+  for (const c of coins) {
+    map[c.id] = {
+      price:      c.current_price      ?? c.price      ?? null,
+      change_24h: c.price_change_percentage_24h ?? c.change_24h ?? null,
+      image:      c.image              ?? null,
+    };
+  }
+  return map;
+}
+
+// GET /api/watchlist — user's watched coins enriched from server-side price cache
 router.get('/', requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -11,31 +27,20 @@ router.get('/', requireAuth, async (req, res) => {
     );
     if (!rows.length) return res.json([]);
 
-    const ids = rows.map(r => r.coin_id).join(',');
-    let priceMap = {};
-    try {
-      const r = await fetch(
-        `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${ids}&order=market_cap_desc&sparkline=false&price_change_percentage=24h`,
-        { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
-      );
-      if (r.ok) {
-        const data = await r.json();
-        priceMap = Object.fromEntries(data.map(p => [p.id, p]));
-      }
-    } catch { /* serve without prices */ }
+    const priceMap = buildPriceMap();
 
     const result = rows.map(w => {
       const p = priceMap[w.coin_id];
       return {
         ...w,
-        price:      p?.current_price                    ?? null,
-        change_24h: p?.price_change_percentage_24h      ?? null,
-        image:      p?.image                            ?? null,
+        price:      p?.price      ?? null,
+        change_24h: p?.change_24h ?? null,
+        image:      p?.image      ?? null,
       };
     });
     res.json(result);
   } catch (err) {
-    console.error(err);
+    console.error('[watchlist GET]', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

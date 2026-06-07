@@ -1,73 +1,96 @@
-# Feedback Model — Votes as a Personalization Signal
+# Feedback Model
 
-## How votes are stored today
+## What we collect today
+
+Every thumbs-up or thumbs-down a user clicks gets saved to the `votes` table:
 
 ```sql
 CREATE TABLE votes (
   id         SERIAL PRIMARY KEY,
   user_id    INTEGER NOT NULL REFERENCES users(id),
-  section    TEXT NOT NULL,        -- 'coin_prices' | 'market_news' | 'ai_insight' | 'meme'
-  item_id    TEXT NOT NULL,        -- 'main' or a specific item id (meme id, news id, coin id)
-  vote       SMALLINT NOT NULL,    -- +1 (helpful) or -1 (not helpful)
+  section    TEXT NOT NULL,     -- 'coin_prices' | 'market_news' | 'ai_insight' | 'meme'
+  item_id    TEXT NOT NULL,     -- 'main' for the whole section, or the specific coin/news/meme id
+  vote       SMALLINT NOT NULL, -- +1 or -1
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE (user_id, section, item_id)
 );
 ```
 
-Each row records one user's thumbs-up or thumbs-down on one content unit. Re-voting on the same `(user_id, section, item_id)` tuple updates the existing row (upsert), so the table always reflects the user's latest opinion, not a raw event log.
+The unique constraint means re-voting the same item just updates the existing row — no duplicate rows piling up. One row = one user's current opinion on one thing.
 
 ---
 
-## How this data could train a personalization model
+## How the data is used right now
 
-**Collaborative filtering signal:** If users with similar `interested_assets` and `investor_type` profiles consistently downvote a certain AI model's insight style, the dashboard could deprioritize that model for new users who match the same profile.
+**Coin filtering** — when the dashboard builds the coin list for a user, it queries all their `-1` votes where `section = 'coin_prices'` and `item_id != 'main'`. Those coin IDs are excluded from the list entirely. If a user keeps downvoting bitcoin, bitcoin disappears from their dashboard.
 
-**Content-based signal:** Downvotes on specific coin cards can inform which assets to drop from a user's feed even if they selected them during onboarding — preferences drift, explicit signals update them.
+**AI prompt injection** — the same disliked coin IDs get appended to the AI insight prompt. Something like: "do not focus on BTC, ETH". So not only does the coin card disappear, the AI stops talking about it too.
 
-**Implicit cold-start fix:** New users with no vote history inherit rankings from the nearest neighbor cluster in preference space (assets + investor type).
+**Ordering** — coins the user selected during onboarding are placed first in the list. Coins they've never interacted with fill the remaining slots up to 8.
 
 ---
 
-## Suggested schema extensions for richer signals
+## How it could train a model (suggestion, not implemented)
+
+Right now votes are just filtered out or injected into a prompt. They're not actually used to train anything. Here's how that could work:
+
+**Step 1 — store votes as a matrix**
+
+Each user×coin pair has a score: `+1` (liked), `-1` (disliked), or missing (not seen / no opinion). This is a classic collaborative filtering setup. Once you have enough users (call it 50+), you can train a matrix factorization model — something like SVD or ALS — on this data. The model learns that users who dislike coin X tend to dislike coin Y, and can pre-filter before the user even votes.
+
+**Step 2 — add richer signals**
+
+Votes are binary and explicit. But there's implicit data too — how long a user looked at a card, whether they opened the detail modal, whether they clicked "Read more" on a news item. Adding a simple `interactions` table to capture these would give the model a lot more signal, especially for new users who haven't voted much yet:
 
 ```sql
--- Replace the current binary vote with a richer event stream
 CREATE TABLE interactions (
-  id           BIGSERIAL PRIMARY KEY,
-  user_id      INTEGER NOT NULL REFERENCES users(id),
-  section      TEXT NOT NULL,
-  item_id      TEXT NOT NULL,
-  event        TEXT NOT NULL,       -- 'view' | 'vote_up' | 'vote_down' | 'click' | 'expand' | 'share'
-  dwell_ms     INTEGER,             -- milliseconds the card was in the viewport (IntersectionObserver)
-  scroll_depth SMALLINT,            -- 0–100 % of card scrolled through
-  re_reads     SMALLINT DEFAULT 0,  -- number of times viewport re-entered
-  created_at   TIMESTAMPTZ DEFAULT NOW()
+  user_id    INTEGER NOT NULL REFERENCES users(id),
+  section    TEXT NOT NULL,
+  item_id    TEXT NOT NULL,
+  event      TEXT NOT NULL,  -- 'view' | 'click' | 'expand' | 'vote_up' | 'vote_down'
+  dwell_ms   INTEGER,        -- time the card was visible (IntersectionObserver)
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
+```
 
--- Materialised daily aggregate for the ML pipeline
+A user who spends 8 seconds reading an AI insight is telling us more than a user who scrolls past in half a second, even if neither voted.
+
+**Step 3 — materialized aggregate for the ML pipeline**
+
+You don't want the ML model reading raw event rows. Roll it up daily into a per-user-per-item score:
+
+```sql
 CREATE MATERIALIZED VIEW user_item_affinity AS
 SELECT
-  user_id,
-  section,
-  item_id,
-  SUM(CASE event WHEN 'vote_up' THEN 2 WHEN 'vote_down' THEN -2
-                 WHEN 'click'   THEN 1 WHEN 'expand'    THEN 0.5
-                 ELSE 0 END)                          AS affinity_score,
-  AVG(dwell_ms)                                       AS avg_dwell_ms,
-  COUNT(*) FILTER (WHERE event = 're_read')           AS re_read_count
+  user_id, section, item_id,
+  SUM(CASE event
+    WHEN 'vote_up'   THEN  2
+    WHEN 'vote_down' THEN -2
+    WHEN 'click'     THEN  1
+    WHEN 'expand'    THEN  0.5
+    ELSE 0
+  END) AS score,
+  AVG(dwell_ms) AS avg_dwell
 FROM interactions
 GROUP BY user_id, section, item_id;
 ```
 
+Export this as a CSV, train SVD with the `surprise` library or `implicit`, get item embeddings back. The recommendations endpoint returns a reordered list of coins and news items.
+
+**Step 4 — new user cold start**
+
+New users have no vote history. Two options:
+- Fall back to the onboarding prefs (assets + investor type) as a proxy — same as now
+- Find the nearest existing users by profile similarity and inherit their top-voted items
+
+The second is better once there's enough data. Until then, onboarding prefs are fine.
+
 ---
 
-## Recommended ML approach
+## What would actually need to change to implement this
 
-| Scenario | Approach |
-|----------|----------|
-| Enough vote history (≥ 50 users) | **Collaborative filtering** (matrix factorization, e.g. ALS) on the `affinity_score` matrix |
-| Rich item metadata (coin sector, news source, AI model) | **Content-based filtering** — embed item features, compute cosine similarity to user's liked items |
-| Both signals available | **Hybrid model** — weighted combination; collaborative filtering fills gaps the content model misses for new item types |
-| Real-time re-ranking | **Bandit algorithm** (contextual ε-greedy or Thompson sampling) — treats each section slot as an arm, uses live vote feedback to converge without a full retrain cycle |
-
-**Practical next step:** Export the `user_item_affinity` view as a CSV, train a lightweight SVD model with `surprise` or `implicit`, and serve recommendations via a `/api/recommendations` endpoint that the dashboard queries once on load to reorder coin and news cards before rendering.
+- Add the `interactions` table + a frontend event emitter (IntersectionObserver for dwell time, click handlers already exist)
+- A cron job that refreshes the `user_item_affinity` view daily
+- A training script (Python, runs offline on the exported CSV)
+- A new `/api/recommendations` endpoint that loads model output and reorders the dashboard items before returning them
+- The dashboard route reads from recommendations first, falls back to current logic if model output is missing

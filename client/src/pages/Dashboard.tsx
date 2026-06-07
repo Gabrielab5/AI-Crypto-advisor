@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Menu, LogOut, Star } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
-  getDashboard, getInsight,
+  getDashboard,
   type CoinPrice, type NewsItem, type AIInsight, type Meme,
   type DashboardData,
 } from '../api/dashboard';
@@ -209,18 +209,18 @@ function MarketNewsCard({ news }: { news: NewsItem[] }) {
             <div className="min-w-0">
               <a href={item.url !== '#' ? item.url : undefined}
                 target={item.url !== '#' ? '_blank' : undefined} rel="noopener noreferrer"
-                className={`block text-[var(--c-text-2)] text-xs leading-relaxed line-clamp-2 ${item.url !== '#' ? 'hover:text-[var(--c-text)] hover:underline transition-colors cursor-pointer' : 'cursor-default'}`}>
+                className={`block text-[var(--c-text-2)] text-[0.95rem] leading-relaxed line-clamp-2 ${item.url !== '#' ? 'hover:text-[var(--c-text)] hover:underline transition-colors cursor-pointer' : 'cursor-default'}`}>
                 {item.title}
               </a>
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-[var(--c-muted)] text-xs">{item.source}</span>
-                <span className="text-[var(--c-s3)] text-xs">·</span>
-                <span className="text-[var(--c-s3)] text-xs">{timeAgo(item.published_at)}</span>
+                <span className="text-[var(--c-muted)] text-[0.8rem]">{item.source}</span>
+                <span className="text-[var(--c-s3)] text-[0.8rem]">·</span>
+                <span className="text-[var(--c-s3)] text-[0.8rem]">{timeAgo(item.published_at)}</span>
                 {item.url !== '#' && (
                   <>
                     <span className="text-[var(--c-s3)] text-xs">·</span>
                     <a href={item.url} target="_blank" rel="noopener noreferrer"
-                      className="text-[var(--c-accent)] text-xs hover:underline transition-colors">
+                      className="text-[var(--c-accent)] text-[0.8rem] hover:underline transition-colors">
                       Read more →
                     </a>
                   </>
@@ -235,33 +235,16 @@ function MarketNewsCard({ news }: { news: NewsItem[] }) {
 }
 
 // ─── AI Insight Card ───────────────────────────────────────────────────────
-function AIInsightCard({ insight, onRefresh, refreshing }: { insight: AIInsight; onRefresh:()=>void; refreshing:boolean }) {
+function AIInsightCard({ insight }: { insight: AIInsight }) {
   return (
     <div className="flex flex-col h-full">
       <blockquote className="flex-1 relative">
         <span className="text-[var(--c-accent)]/20 text-6xl font-serif absolute -top-2 -left-1 leading-none select-none">"</span>
-        {refreshing ? (
-          <div className="pl-5 space-y-2 animate-pulse">
-            {[1,2,3].map(i => <div key={i} className="h-3 bg-[var(--c-s2)] rounded" style={{width:`${60+i*10}%`}} />)}
-          </div>
-        ) : (
-          <p className="text-[var(--c-text-2)] text-sm leading-relaxed pl-5 italic">{insight.text}</p>
-        )}
+        <p className="text-[var(--c-text-2)] text-sm leading-relaxed pl-5 italic">{insight.text}</p>
       </blockquote>
       <div className="flex items-center justify-between mt-5 pt-4 border-t border-[var(--c-border)]">
-        <div>
-          <span className="text-[var(--c-muted)] text-xs">
-            {insight.model === 'fallback' || insight.model === 'static' ? 'Static insight' : insight.model.split('/').pop()}
-          </span>
-          <span className="text-[var(--c-s3)] text-xs ml-2">{timeAgo(insight.generated_at)}</span>
-        </div>
-        <button onClick={onRefresh} disabled={refreshing}
-          className="flex items-center gap-1.5 text-xs text-[var(--c-accent)] hover:text-[var(--c-accent-2)] transition-colors disabled:opacity-50 btn-base">
-          <svg className={`w-3 h-3 ${refreshing?'animate-spin':''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-          </svg>
-          {refreshing ? 'Generating…' : 'New insight'}
-        </button>
+        <span className="text-[var(--c-muted)] text-xs font-medium">Personalized AI Insight</span>
+        <span className="text-[var(--c-s3)] text-xs">Last updated: {timeAgo(insight.generated_at)}</span>
       </div>
     </div>
   );
@@ -289,23 +272,38 @@ function MemeCard({ meme, allMemes, onNewMeme }: { meme: Meme; allMemes: Meme[];
 }
 
 
+// ─── Read localStorage cache synchronously (used for lazy state init) ─────
+function readDashboardCache(): DashboardData | null {
+  try {
+    const s = localStorage.getItem(LS_KEY);
+    return s ? (JSON.parse(s).data as DashboardData) : null;
+  } catch { return null; }
+}
+
 // ─── Main ──────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const [data,             setData]             = useState<DashboardData | null>(null);
-  const [loading,          setLoading]          = useState(true);
+  // Hydrate directly from localStorage so the first render shows real data
+  // instead of skeletons when a cache entry exists (stale-while-revalidate).
+  const [data,             setData]             = useState<DashboardData | null>(() => readDashboardCache());
+  const [loading,          setLoading]          = useState(() => readDashboardCache() === null);
   const [loadError,        setLoadError]        = useState(false);
-  const [isStale,          setIsStale]          = useState(false);
   const [votes,            setVotes]            = useState<Record<string,'up'|'down'>>({});
   const [pendingVote,      setPendingVote]      = useState<string|null>(null);
-  const [refreshingAI,     setRefreshingAI]     = useState(false);
   const [drawerOpen,       setDrawerOpen]       = useState(false);
   const [selectedCoin,     setSelectedCoin]     = useState<CoinPrice|null>(null);
-  const [activeMeme,       setActiveMeme]       = useState<Meme|null>(null);
-  const [allMemes,         setAllMemes]         = useState<Meme[]>([]);
+  const [activeMeme,       setActiveMeme]       = useState<Meme|null>(() => {
+    const c = readDashboardCache();
+    const pool = c?.memes?.length ? c.memes : (c?.meme ? [c.meme] : []);
+    return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+  });
+  const [allMemes,         setAllMemes]         = useState<Meme[]>(() => {
+    const c = readDashboardCache();
+    return c?.memes?.length ? c.memes : (c?.meme ? [c.meme] : []);
+  });
   const [lastUpdated,      setLastUpdated]      = useState<Date|null>(null);
   const [secondsAgo,       setSecondsAgo]       = useState(0);
   const [toasts,           setToasts]           = useState<ToastItem[]>([]);
@@ -354,7 +352,6 @@ export default function Dashboard() {
       const [dash, userVotes] = await Promise.all([getDashboard(), getVotes()]);
       const d = dash.data;
       setData(d);
-      setIsStale(d.stale === true);
       setLastUpdated(new Date());
 
       // Refresh meme pool and pick a new random meme on every load
@@ -381,7 +378,6 @@ export default function Dashboard() {
           setData(cd);
           const pool = cd.memes?.length ? cd.memes : (cd.meme ? [cd.meme] : []);
           if (pool.length) { setAllMemes(pool); setActiveMeme(pool[Math.floor(Math.random() * pool.length)]); }
-          setIsStale(true);
         } catch {}
       }
     } finally {
@@ -421,30 +417,6 @@ export default function Dashboard() {
       addToast(isSwitch ? 'Preference updated ✓' : 'Preference saved ✓');
     } catch { addToast('Vote failed — try again', 'error'); }
     finally { setPendingVote(null); }
-  }
-
-  async function handleRefreshInsight() {
-    if (refreshingAI) return;
-    setRefreshingAI(true);
-
-    const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('timeout')), 20_000)
-    );
-
-    try {
-      const { data: fresh } = await Promise.race([getInsight(), timeout]);
-      setData(prev => prev ? { ...prev, ai_insight: fresh.ai_insight } : prev);
-      setLastUpdated(new Date());
-    } catch (err) {
-      addToast(
-        err instanceof Error && err.message === 'timeout'
-          ? 'Could not fetch new insight — try again'
-          : 'Failed to refresh insight',
-        'error',
-      );
-    } finally {
-      setRefreshingAI(false);
-    }
   }
 
   async function handleWatchlistToggle(coinId: string) {
@@ -517,12 +489,12 @@ export default function Dashboard() {
           loading={loadingWatchlist}
           onClose={() => setWatchlistOpen(false)}
           onRemove={handleWatchlistRemove}
+          onCoinClick={coin => { setWatchlistOpen(false); setSelectedCoin(coin); }}
         />
       )}
       {selectedCoin && data && (
         <CoinModal
           coin={selectedCoin}
-          news={data.market_news}
           isPinned={watchlistIds.has(selectedCoin.id)}
           onPin={handleWatchlistToggle}
           onClose={() => setSelectedCoin(null)}
@@ -585,15 +557,7 @@ export default function Dashboard() {
           <p className="text-[var(--c-muted)] text-sm mt-1">Here's what's happening in the market today.</p>
         </div>
 
-        {isStale && (
-          <div className="flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-5 py-3 mb-5 text-yellow-400 text-sm">
-            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z" />
-            </svg>
-            ⚠️ Showing cached data — you appear to be offline
-          </div>
-        )}
-        {loadError && !isStale && (
+        {loadError && !data && (
           <div className="flex items-center justify-between bg-[var(--c-red-bg)] border border-red-500/20 rounded-xl px-5 py-3 mb-5">
             <p className="text-red-400 text-sm">Failed to load dashboard.</p>
             <button onClick={loadDashboard} className="text-red-400 hover:text-red-300 text-sm underline btn-base">Retry</button>
@@ -649,7 +613,7 @@ export default function Dashboard() {
           )}
           {loading ? <Skeleton /> : data?.ai_insight && (
             <Card title="AI Insight" icon="🤖" section="ai_insight" voteKey="ai_insight_main" votes={votes} pendingVote={pendingVote} onVote={handleVote}>
-              <AIInsightCard insight={data.ai_insight} onRefresh={handleRefreshInsight} refreshing={refreshingAI} />
+              <AIInsightCard insight={data.ai_insight} />
             </Card>
           )}
           {loading ? <Skeleton /> : activeMeme && (

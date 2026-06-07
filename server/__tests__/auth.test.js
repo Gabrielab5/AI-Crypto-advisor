@@ -69,26 +69,34 @@ describe('POST /api/auth/login', () => {
 });
 
 describe('POST /api/auth/request-password-reset', () => {
-  it('returns success message regardless of whether email exists', async () => {
+  it('returns 404 with descriptive error when email is not registered', async () => {
     pool.query.mockResolvedValueOnce({ rows: [] }); // email not found
     const res = await request(app).post('/api/auth/request-password-reset').send({ email: 'no@no.com' });
-    expect(res.status).toBe(200);
-    expect(res.body.message).toContain('If that email');
+    expect(res.status).toBe(404);
+    expect(res.body.error).toMatch(/no account found/i);
   });
 
-  it('generates reset token when email found', async () => {
+  it('returns 200 and sends reset link when email is registered', async () => {
     pool.query
       .mockResolvedValueOnce({ rows: [{ id: 'uuid-1' }] })
       .mockResolvedValueOnce({ rows: [] }); // UPDATE
     const res = await request(app).post('/api/auth/request-password-reset').send({ email: 'test@test.com' });
     expect(res.status).toBe(200);
+    expect(res.body.message).toMatch(/reset link sent/i);
+  });
+
+  it('generates and stores a reset token when email is registered', async () => {
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: 'uuid-1' }] })
+      .mockResolvedValueOnce({ rows: [] }); // UPDATE
+    await request(app).post('/api/auth/request-password-reset').send({ email: 'test@test.com' });
     expect(pool.query).toHaveBeenCalledWith(
       expect.stringContaining('UPDATE users SET reset_token'),
       expect.arrayContaining([expect.any(String), expect.any(Date), 'uuid-1'])
     );
   });
 
-  it('returns 400 when email is missing', async () => {
+  it('returns 400 when email field is missing', async () => {
     const res = await request(app).post('/api/auth/request-password-reset').send({});
     expect(res.status).toBe(400);
   });

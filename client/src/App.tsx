@@ -5,7 +5,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard   from './pages/Dashboard';
 import Login       from './pages/Login';
 import Register    from './pages/Register';
-import Onboarding  from './pages/Onboarding';
+import Onboarding    from './pages/Onboarding';
+import ResetPassword from './pages/ResetPassword';
 
 function App() {
   return (
@@ -13,8 +14,9 @@ function App() {
       <AuthProvider>
         <BrowserRouter>
           <Routes>
-            <Route path="/login"    element={<Login />} />
-            <Route path="/register" element={<Register />} />
+            <Route path="/login"          element={<Login />} />
+            <Route path="/register"       element={<Register />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
             <Route path="/dashboard"  element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/login" replace />} />
